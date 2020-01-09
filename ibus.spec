@@ -1,5 +1,5 @@
-%{!?python_sitelib: %define python_sitelib %(%{__python} -c "from distutils.sysconfig import get_python_lib; print get_python_lib()")}
-%{!?gtk_binary_version: %define gtk_binary_version %(pkg-config  --variable=gtk_binary_version gtk+-2.0)}
+%{!?python_sitelib: %global python_sitelib %(%{__python} -c "from distutils.sysconfig import get_python_lib; print get_python_lib()")}
+%{!?gtk_binary_version: %global gtk_binary_version %(pkg-config  --variable=gtk_binary_version gtk+-2.0)}
 
 %define glib_ver %([ -a %{_libdir}/pkgconfig/glib-2.0.pc ] && pkg-config --modversion glib-2.0 | cut -d. -f 1,2 || echo -n "999")
 %define gconf2_version 2.12.0
@@ -8,7 +8,7 @@
 
 Name:       ibus
 Version:    1.3.4
-Release:    8%{?dist}
+Release:    9.1%{?dist}
 Summary:    Intelligent Input Bus for Linux OS
 License:    LGPLv2+
 Group:      System Environment/Libraries
@@ -21,6 +21,9 @@ Patch1:     ibus-01-linguas.patch
 Patch2:     ibus-651915-x11-position.patch
 Patch3:     ibus-1066075-async-im-module.patch
 Patch4:     ibus-1043381-x11-hang-fast-type.patch
+Patch5:     ibus-1245288-restart-segv.patch
+Patch6:     ibus-1403077-zaphodheads.patch
+Patch7:     ibus-1403077-zaphodheads-x11.patch
 
 BuildRoot:  %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 
@@ -118,6 +121,9 @@ bzcat %SOURCE2 | tar xfv -
 %patch2 -p1 -b .endian
 %patch3 -p1 -b .async
 %patch4 -p1 -b .xhang
+%patch5 -p1 -b .restart
+%patch6 -p1 -b .zaphod
+%patch7 -p1 -b .zaphod-x11
 
 %build
 autoreconf --verbose --install
@@ -231,6 +237,17 @@ fi
 %{_datadir}/gtk-doc/html/*
 
 %changelog
+* Mon Mar 12 2018 Takao Fujiwara <tfujiwar@redhat.com> - 1.3.4-9.1
+- Resolves: Bug 1549171 - Support second monitor in ZaphodHeads
+
+* Tue Jul 25 2017 Takao Fujiwara <tfujiwar@redhat.com> - 1.3.4-10
+- Resolves: Bug 1403077 - Support second monitor in ZaphodHeads
+  Added ibus-1403077-zaphodheads-x11.patch to get x11 screen number
+  Added ibus-1403077-zaphodheads.patch
+
+* Wed Oct 28 2015 Takao Fujiwara <tfujiwar@redhat.com> - 1.3.4-9
+- Fixed Bug 1245288 - im-chooser kills firefox when you select ibus
+
 * Fri Dec 12 2014 Takao Fujiwara <tfujiwar@redhat.com> - 1.3.4-8
 - Fixed Bug 1043381 - programs using "PreeditType: OverTheSpot" is stalled
 
@@ -308,7 +325,7 @@ fi
 - Fix bug 531857 - applet order should correspond with preferences order
 - Fix bug 532856 - should not list already added input-methods in Add selector
 
-* Wed Dec 15 2009 Peng Huang <shawn.p.huang@gmail.com> - 1.2.0.20091215-1
+* Tue Dec 15 2009 Peng Huang <phuang@redhat.com> - 1.2.0.20091215-1
 - Update to 1.2.0.20091215
 
 * Thu Dec 10 2009 Peng Huang <shawn.p.huang@gmail.com> - 1.2.0.20091204-2
@@ -331,7 +348,7 @@ fi
 - Update to 1.2.0.20091014
 - Change ICON in ibus.conf 
 
-* Mon Sep 27 2009 Peng Huang <shawn.p.huang@gmail.com> - 1.2.0.20090927-1
+* Sun Sep 27 2009 Peng Huang <phuang@redhat.com> - 1.2.0.20090927-1
 - Update to 1.2.0.20090927
 
 * Tue Sep 15 2009 Peng Huang <shawn.p.huang@gmail.com> - 1.2.0.20090915-1
@@ -512,7 +529,7 @@ fi
 - drop the superfluous ibus-0.1 engine obsoletes
 - move glib2 requires to gtk package
 
-* Tue Feb 25 2009 Peng Huang <shawn.p.huang@gmail.com> - 1.1.0.20090225-1
+* Wed Feb 25 2009 Peng Huang <phuang@redhat.com> - 1.1.0.20090225-1
 - Update to ibus-1.1.0.20090225.
 - Fix problems in %%post and %%postun scripts.
 - Hide ibus & ibus preferences menu items.
@@ -619,7 +636,7 @@ fi
 * Fri Aug 15 2008 Peng Huang <shawn.p.huang@gmail.com> - 0.1.1.20080815-1
 - Update to 0.1.1.20080815.
 
-* Thu Aug 12 2008 Peng Huang <shawn.p.huang@gmail.com> - 0.1.1.20080812-1
+* Tue Aug 12 2008 Peng Huang <phuang@redhat.com> - 0.1.1.20080812-1
 - Update to 0.1.1.20080812.
 
 * Mon Aug 11 2008 Peng Huang <shawn.p.huang@gmail.com> - 0.1.0.20080810-2
