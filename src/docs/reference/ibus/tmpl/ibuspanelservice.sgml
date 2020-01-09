@@ -1,0 +1,113 @@
+<!-- ##### SECTION Title ##### -->
+IBusPanelService
+
+<!-- ##### SECTION Short_Description ##### -->
+
+
+<!-- ##### SECTION Long_Description ##### -->
+<para>
+
+</para>
+
+<!-- ##### SECTION See_Also ##### -->
+<para>
+
+</para>
+
+<!-- ##### SECTION Stability_Level ##### -->
+
+
+<!-- ##### SECTION Image ##### -->
+
+
+<!-- ##### STRUCT IBusPanelService ##### -->
+<para>
+
+</para>
+
+
+<!-- ##### ARG IBusPanelService:connection ##### -->
+<para>
+
+</para>
+
+<!-- ##### FUNCTION ibus_panel_service_new ##### -->
+<para>
+
+</para>
+
+@connection: 
+@Returns: 
+
+
+<!-- ##### FUNCTION ibus_panel_service_candidate_clicked ##### -->
+<para>
+
+</para>
+
+@panel: 
+@index: 
+@button: 
+@state: 
+
+
+<!-- ##### FUNCTION ibus_panel_service_cursor_down ##### -->
+<para>
+
+</para>
+
+@panel: 
+
+
+<!-- ##### FUNCTION ibus_panel_service_cursor_up ##### -->
+<para>
+
+</para>
+
+@panel: 
+
+
+<!-- ##### FUNCTION ibus_panel_service_page_down ##### -->
+<para>
+
+</para>
+
+@panel: 
+
+
+<!-- ##### FUNCTION ibus_panel_service_page_up ##### -->
+<para>
+
+</para>
+
+@panel: 
+
+
+<!-- ##### FUNCTION ibus_panel_service_property_active ##### -->
+<para>
+
+</para>
+
+@panel: 
+@prop_name: 
+@prop_state: 
+
+
+<!-- ##### FUNCTION ibus_panel_service_property_show ##### -->
+<para>
+
+</para>
+
+@panel: 
+@prop_name: 
+
+
+<!-- ##### FUNCTION ibus_panel_service_property_hide ##### -->
+<para>
+
+</para>
+
+@panel: 
+@prop_name: 
+
+
