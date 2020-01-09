@@ -8,7 +8,7 @@
 
 Name:       ibus
 Version:    1.3.4
-Release:    6%{?dist}
+Release:    8%{?dist}
 Summary:    Intelligent Input Bus for Linux OS
 License:    LGPLv2+
 Group:      System Environment/Libraries
@@ -19,6 +19,8 @@ Source2:    http://fujiwara.fedorapeople.org/ibus/rhel/6/ibus-1.3.4-po-2010-11-1
 Patch0:     ibus-HEAD.patch
 Patch1:     ibus-01-linguas.patch
 Patch2:     ibus-651915-x11-position.patch
+Patch3:     ibus-1066075-async-im-module.patch
+Patch4:     ibus-1043381-x11-hang-fast-type.patch
 
 BuildRoot:  %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 
@@ -114,8 +116,11 @@ bzcat %SOURCE2 | tar xfv -
 %patch0 -p1
 %patch1 -p1 -b .linguas
 %patch2 -p1 -b .endian
+%patch3 -p1 -b .async
+%patch4 -p1 -b .xhang
 
 %build
+autoreconf --verbose --install
 %configure --disable-static \
            --enable-gtk-doc
 # make -C po update-gmo
@@ -226,6 +231,12 @@ fi
 %{_datadir}/gtk-doc/html/*
 
 %changelog
+* Fri Dec 12 2014 Takao Fujiwara <tfujiwar@redhat.com> - 1.3.4-8
+- Fixed Bug 1043381 - programs using "PreeditType: OverTheSpot" is stalled
+
+* Wed Jul 23 2014 Takao Fujiwara <tfujiwar@redhat.com> - 1.3.4-7
+- Fixed Bug 1066075 - Lotus Sametime hangs when searching for Korean names
+
 * Mon Aug 01 2011 Takao Fujiwara <tfujiwar@redhat.com> - 1.3.4-6
 - Fixed Bug 667031 - ibus requires dbus-x11
 - Fixed Bug 670137 - QT_IM_MODULE=xim in ibus.conf without ibus-qt
