@@ -1,0 +1,30 @@
+Changes in IBus 1.5.17
+
+Fix a typo in configure.ac (Felix Yan) e6bab7ab
+configure: Change relative paths to absolute ones (fujiwarat) 4fe3050e
+engine: Add Malay and Mongolian keymaps (fujiwarat) 44d05357
+ui/gtk3: Emojier supports Ctrl-c,v,x and Ctrl-Shift-c (fujiwarat) 081d09f1
+Make all emoji dicts for fully qualified (fujiwarat) ad80999f
+po: Replace s/annotaions/annotations/ (fujiwarat) 56b5126f
+ui/gtk3: Fix SEGV of IBusEmojier on de_DE.UTF-8 (fujiwarat) bc0f9134
+ui/gtk3: Fix SEGV of XKeysymToKeycode() on Wayland (fujiwarat) 91bebf01
+client/gtk2: include the scaling factor (Xiang Fan) 6a3301db
+Typo fix (Mario Bodemann) c1b93f93
+Initial version of ibus portal (Alexander Larsson) 203a3df5
+Support the portal in the gtk im modules (Alexander Larsson) 35ce6247
+test: Testing in flatpak (Alexander Larsson) 9772e800
+bus: ibus-daemon activates ibus-portal (fujiwarat) 9937a0e4
+portal: Add org.freedesktop.IBus.Portal.xml in EXTRA_DIST (fujiwarat) 3e01bab9
+ui/gtk3: Move ibus-emoji-dialog.vapi from ui/gtk3 to bindings/vala (fujiwarat) 21bac473
+ui/gtk3: Switcher should ignore mouse until it moves (fujiwarat) d788918b
+client/gtk2: Do not send key events to GtkIMContextSimple (fujiwarat) bbfb3d73
+client/gtk2: Fix a build failure with GDK_MODIFIER_INTENT_NO_TEXT_INPUT (fujiwarat) d784e04c
+Remove debian directory upon the Debian's request (fujiwarat) 79aebc55
+ui/gtk3: Fix PropertyPanel position in workarea (fujiwarat) 0632cbbb
+ui/gtk3: Fix to enable menu button on PropertyPanel (fujiwarat) 4a541639
+ui/gtk3: Unset GDK_CORE_DEVICE_EVENTS (fujiwarat) d37c8bbd
+ui/gtk3: Do not activate emoji cells on mouse until mouse moves (fujiwarat) 98f70ee5
+ui/gtk3: Unref Panel and Indicator when double panels run (fujiwarat) dfe21a27
+ui/gtk3: Increase timeout of window filter in PropertyPanel (fujiwarat) 53d1f9e9
+Update translations (fujiwarat) 8cb149bf
+Release 1.5.17 (fujiwarat) 4f9fa092
