@@ -26,7 +26,7 @@
 
 Name:       ibus
 Version:    1.5.3
-Release:    12%{?dist}
+Release:    13%{?dist}
 Summary:    Intelligent Input Bus for Linux OS
 License:    LGPLv2+
 Group:      System Environment/Libraries
@@ -44,6 +44,8 @@ Patch2:     %{name}-541492-xkb.patch
 Patch3:     %{name}-530711-preload-sys.patch
 # Hide minor input method engines on ibus-setup by locale
 Patch4:     %{name}-xx-setup-frequent-lang.patch
+# Fix build with newer vala versions
+Patch5:     0001-Fix-a-build-error-of-Gdk.EventKey-with-vala-0.23.2.patch
 
 # Removed the target.
 # rhpkg srpm's target is rhel but it runs on fedora box.
@@ -230,6 +232,7 @@ rm -f data/dconf/00-upstream-settings
 %endif
 %patch3 -p1 -b .preload-sys
 %patch4 -p1 -b .setup-frequent-lang
+%patch5 -p1
 
 %if (0%{?fedora} < 19 && 0%{?rhel} < 7)
 %patch95 -p1 -b .ctrl
@@ -418,6 +421,9 @@ gtk-query-immodules-3.0-%{__isa_bits} --update-cache &> /dev/null || :
 %{_datadir}/gtk-doc/html/*
 
 %changelog
+* Thu Jul 23 2015 Rui Matos <rmatos@redhat.com> - 1.5.3-13
+- Resolves: #1238397 - ibus doesn't build with vala in 7.2
+
 * Fri Apr 03 2015 Takao Fujiwara <tfujiwar@redhat.com> - 1.5.3-12
 - Resolves: #1183909 - programs using "PreeditType: OverTheSpot" is stalled
 - Resolves: #1191825 - gtk2's immodules.cache won't be updated in some cases
