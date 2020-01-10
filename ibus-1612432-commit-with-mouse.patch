@@ -1,0 +1,1051 @@
+From 8ab0b603ba1cd8701583aee46c712898d52005f1 Mon Sep 17 00:00:00 2001
+From: fujiwarat <takao.fujiwara1@gmail.com>
+Date: Wed, 23 May 2018 19:20:10 +0900
+Subject: [PATCH] bus: Fix a SEGV in bus_input_context_emit_signal
+
+IBus engines can call 'RequireSurroundingText' for a fake input context
+if there is no input focus.
+---
+ bus/inputcontext.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/bus/inputcontext.c b/bus/inputcontext.c
+index a957d107..dfb98c36 100644
+--- a/bus/inputcontext.c
++++ b/bus/inputcontext.c
+@@ -716,7 +716,9 @@ bus_input_context_emit_signal (BusInputContext *context,
+                                GError         **error)
+ {
+     if (context->connection == NULL) {
+-        g_variant_unref (parameters);
++        /* fake context has no connections. */
++        if (parameters)
++            g_variant_unref (parameters);
+         return TRUE;
+     }
+ 
+-- 
+2.20.1
+
+From a40631e166137c9042a68c2d76844e7afc53d388 Mon Sep 17 00:00:00 2001
+From: fujiwarat <takao.fujiwara1@gmail.com>
+Date: Fri, 9 Nov 2018 14:49:44 +0900
+Subject: [PATCH 1/4] Detect mouse click to commit Hangul preedit
+
+If preedit text is not committed with the mouse click, preedit text
+is moved to the new cursor position in Hangul typing.
+Since set_cursor_location() is received before the reset() signal is
+sent to ibus-daemon and commit_text() signal is received from
+ibus-daemon, UpdatePreeditTextWithMode D-Bus method is newly added
+and now ibus clients commit the preedit.
+
+BUG=https://github.com/ibus/ibus/issues/1980
+---
+ bus/ibusimpl.c              |  11 ++++
+ bus/inputcontext.c          | 108 ++++++++++++++++++++++++-------
+ bus/inputcontext.h          |  19 +++++-
+ client/gtk2/ibusimcontext.c |  95 +++++++++++++++++++++++++---
+ src/ibusinputcontext.c      | 122 ++++++++++++++++++++++++++++++++----
+ src/ibusinputcontext.h      |  27 +++++++-
+ 6 files changed, 338 insertions(+), 44 deletions(-)
+
+diff --git a/bus/ibusimpl.c b/bus/ibusimpl.c
+index 80f3acfb..bbbb5770 100644
+--- a/bus/ibusimpl.c
++++ b/bus/ibusimpl.c
+@@ -629,6 +629,17 @@ bus_ibus_impl_set_focused_context (BusIBusImpl     *ibus,
+             engine = bus_input_context_get_engine (ibus->focused_context);
+             if (engine) {
+                 g_object_ref (engine);
++                /* _ic_focus_in() can be called before _ic_focus_out() is
++                 * called under the async processes of two ibus clients.
++                 * E.g. gedit is a little slower v.s. a simple GtkTextView
++                 * application is the fastest when you click a Hangul
++                 * preedit text between the applications.
++                 * preedit will be committed with focus-out in the ibus client
++                 * likes ibus-im.so
++                 * so do not commit preedit here in focus-in event.
++                 */
++                bus_input_context_clear_preedit_text (ibus->focused_context,
++                                                      FALSE);
+                 bus_input_context_set_engine (ibus->focused_context, NULL);
+             }
+         }
+diff --git a/bus/inputcontext.c b/bus/inputcontext.c
+index 4f98b849..1b8e7adb 100644
+--- a/bus/inputcontext.c
++++ b/bus/inputcontext.c
+@@ -73,6 +73,7 @@ struct _BusInputContext {
+     guint     preedit_cursor_pos;
+     gboolean  preedit_visible;
+     guint     preedit_mode;
++    gboolean  client_commit_preedit;
+ 
+     /* auxiliary text */
+     IBusText *auxiliary_text;
+@@ -216,6 +217,9 @@ static IBusPropList    *props_empty = NU
+ static const gchar introspection_xml[] =
+     "<node>"
+     "  <interface name='org.freedesktop.IBus.InputContext'>"
++    /* properties */
++    "    <property name='ContentType' type='(uu)' access='write' />"
++    "    <property name='ClientCommitPreedit' type='(b)' access='write' />\n"
+     /* methods */
+     "    <method name='ProcessKeyEvent'>"
+     "      <arg direction='in'  type='u' name='keyval' />"
+@@ -277,6 +281,12 @@ static const gchar introspection_xml[] =
+     "      <arg type='u' name='cursor_pos' />"
+     "      <arg type='b' name='visible' />"
+     "    </signal>"
++    "    <signal name='UpdatePreeditTextWithMode'>"
++    "      <arg type='v' name='text' />"
++    "      <arg type='u' name='cursor_pos' />"
++    "      <arg type='b' name='visible' />"
++    "      <arg type='u' name='mode' />"
++    "    </signal>"
+     "    <signal name='ShowPreeditText'/>"
+     "    <signal name='HidePreeditText'/>"
+     "    <signal name='UpdateAuxiliaryText'>"
+@@ -301,9 +311,6 @@ static const gchar introspection_xml[] =
+     "    <signal name='UpdateProperty'>"
+     "      <arg type='v' name='prop' />"
+     "    </signal>"
+-
+-    /* properties */
+-    "    <property name='ContentType' type='(uu)' access='write' />"
+     "  </interface>"
+     "</node>";
+ 
+@@ -981,6 +988,12 @@ _ic_reset (BusInputContext       *contex
+            GDBusMethodInvocation *invocation)
+ {
+     if (context->engine) {
++        if (context->preedit_mode == IBUS_ENGINE_PREEDIT_COMMIT) {
++            if (context->client_commit_preedit)
++               bus_input_context_clear_preedit_text (context, FALSE);
++            else
++               bus_input_context_clear_preedit_text (context, TRUE);
++        }
+         bus_engine_proxy_reset (context->engine);
+     }
+     g_dbus_method_invocation_return_value (invocation, NULL);
+@@ -1248,6 +1261,13 @@ _ic_set_content_type (BusInputContext *c
+     }
+ }
+ 
++static void
++_ic_set_client_commit_preedit (BusInputContext *context,
++                               GVariant        *value)
++{
++    g_variant_get (value, "(b)", &context->client_commit_preedit);
++}
++
+ static gboolean
+ bus_input_context_service_set_property (IBusService     *service,
+                                         GDBusConnection *connection,
+@@ -1270,9 +1290,14 @@ bus_input_context_service_set_property (
+                                   error);
+     }
+ 
++    g_return_val_if_fail (BUS_IS_INPUT_CONTEXT (service), FALSE);
++
+     if (g_strcmp0 (property_name, "ContentType") == 0) {
+-        BusInputContext *context = (BusInputContext *) service;
+-        _ic_set_content_type (context, value);
++        _ic_set_content_type (BUS_INPUT_CONTEXT (service), value);
++        return TRUE;
++    }
++    if (g_strcmp0 (property_name, "ClientCommitPreedit") == 0) {
++        _ic_set_client_commit_preedit (BUS_INPUT_CONTEXT (service), value);
+         return TRUE;
+     }
+ 
+@@ -1343,22 +1368,44 @@ bus_input_context_focus_in (BusInputCont
+ 
+ /**
+  * bus_input_context_clear_preedit_text:
++ * @context: A #BusInputContext
++ * @with_signal: %FALSE if the preedit is already updated in ibus clients
++ *               likes ibus-im.so. Otherwise %TRUE.
+  *
+- * Clear context->preedit_text. If the preedit mode is IBUS_ENGINE_PREEDIT_COMMIT, commit it before clearing.
++ * Clear context->preedit_text. If the preedit mode is
++ * IBUS_ENGINE_PREEDIT_COMMIT, commit it before clearing.
+  */
+-static void
+-bus_input_context_clear_preedit_text (BusInputContext *context)
++void
++bus_input_context_clear_preedit_text (BusInputContext *context,
++                                      gboolean         with_signal)
+ {
++    IBusText *preedit_text;
++    guint     preedit_mode;
++    gboolean  preedit_visible;
++
+     g_assert (BUS_IS_INPUT_CONTEXT (context));
+ 
+-    if (context->preedit_visible &&
+-        context->preedit_mode == IBUS_ENGINE_PREEDIT_COMMIT) {
+-        bus_input_context_commit_text (context, context->preedit_text);
++    if (!with_signal) {
++        g_object_unref (context->preedit_text);
++        context->preedit_mode = IBUS_ENGINE_PREEDIT_CLEAR;
++        context->preedit_text = (IBusText *) g_object_ref_sink (text_empty);
++        context->preedit_cursor_pos = 0;
++        context->preedit_visible = FALSE;
++        return;
+     }
+ 
+-    /* always clear preedit text */
++    /* always clear preedit text to reset the cursor position in the
++     * client application before commit the preeit text. */
++    preedit_text = g_object_ref (context->preedit_text);
++    preedit_mode = context->preedit_mode;
++    preedit_visible = context->preedit_visible;
+     bus_input_context_update_preedit_text (context,
+         text_empty, 0, FALSE, IBUS_ENGINE_PREEDIT_CLEAR);
++
++    if (preedit_visible && preedit_mode == IBUS_ENGINE_PREEDIT_COMMIT) {
++        bus_input_context_commit_text (context, preedit_text);
++    }
++    g_object_unref (preedit_text);
+ }
+ 
+ void
+@@ -1369,7 +1416,10 @@ bus_input_context_focus_out (BusInputCon
+     if (!context->has_focus)
+         return;
+ 
+-    bus_input_context_clear_preedit_text (context);
++    if (context->client_commit_preedit)
++        bus_input_context_clear_preedit_text (context, FALSE);
++    else
++        bus_input_context_clear_preedit_text (context, TRUE);
+     bus_input_context_update_auxiliary_text (context, text_empty, FALSE);
+     bus_input_context_update_lookup_table (context, lookup_table_empty, FALSE);
+     bus_input_context_register_properties (context, props_empty);
+@@ -1455,11 +1505,28 @@ bus_input_context_update_preedit_text (B
+     context->preedit_mode = mode;
+ 
+     if (PREEDIT_CONDITION) {
+-        GVariant *variant = ibus_serializable_serialize ((IBusSerializable *)context->preedit_text);
+-        bus_input_context_emit_signal (context,
+-                                       "UpdatePreeditText",
+-                                       g_variant_new ("(vub)", variant, context->preedit_cursor_pos, context->preedit_visible),
+-                                       NULL);
++        GVariant *variant = ibus_serializable_serialize (
++                (IBusSerializable *)context->preedit_text);
++        if (context->client_commit_preedit) {
++            bus_input_context_emit_signal (
++                    context,
++                    "UpdatePreeditTextWithMode",
++                    g_variant_new ("(vubu)",
++                                   variant,
++                                   context->preedit_cursor_pos,
++                                   context->preedit_visible,
++                                   context->preedit_mode),
++                    NULL);
++        } else {
++            bus_input_context_emit_signal (
++                    context,
++                    "UpdatePreeditText",
++                    g_variant_new ("(vub)",
++                                   variant,
++                                   context->preedit_cursor_pos,
++                                   context->preedit_visible),
++                    NULL);
++        }
+     }
+     else {
+         g_signal_emit (context,
+@@ -2187,7 +2254,7 @@ bus_input_context_disable (BusInputConte
+ {
+     g_assert (BUS_IS_INPUT_CONTEXT (context));
+ 
+-    bus_input_context_clear_preedit_text (context);
++    bus_input_context_clear_preedit_text (context, TRUE);
+     bus_input_context_update_auxiliary_text (context, text_empty, FALSE);
+     bus_input_context_update_lookup_table (context, lookup_table_empty, FALSE);
+     bus_input_context_register_properties (context, props_empty);
+@@ -2230,7 +2297,7 @@ bus_input_context_unset_engine (BusInput
+ {
+     g_assert (BUS_IS_INPUT_CONTEXT (context));
+ 
+-    bus_input_context_clear_preedit_text (context);
++    bus_input_context_clear_preedit_text (context, TRUE);
+     bus_input_context_update_auxiliary_text (context, text_empty, FALSE);
+     bus_input_context_update_lookup_table (context, lookup_table_empty, FALSE);
+     bus_input_context_register_properties (context, props_empty);
+diff --git a/bus/inputcontext.h b/bus/inputcontext.h
+index a46d5c06..7105fff8 100644
+--- a/bus/inputcontext.h
++++ b/bus/inputcontext.h
+@@ -2,8 +2,8 @@
+ /* vim:set et sts=4: */
+ /* ibus - The Input Bus
+  * Copyright (C) 2008-2014 Peng Huang <shawn.p.huang@gmail.com>
+- * Copyright (C) 2017 Takao Fujiwara <takao.fujiwara1@gmail.com>
+- * Copyright (C) 2008-2014 Red Hat, Inc.
++ * Copyright (C) 2017-2018 Takao Fujiwara <takao.fujiwara1@gmail.com>
++ * Copyright (C) 2008-2018 Red Hat, Inc.
+  *
+  * This library is free software; you can redistribute it and/or
+  * modify it under the terms of the GNU Lesser General Public
+@@ -269,5 +269,19 @@ void                 bus_input_context_c
+                                                 (BusInputContext *context,
+                                                  IBusText        *text);
+ 
++/**
++ * bus_input_context_clear_preedit_text:
++ *
++ * Clear context->preedit_text. If the preedit mode is
++ * IBUS_ENGINE_PREEDIT_COMMIT and with_signal is %TRUE, commit it before
++ * clearing.
++ * If with_signal is %FALSE, this just clears the preedit coditions
++ * and the actual preedit is handled in ibus clients.
++ */
++void                 bus_input_context_clear_preedit_text
++                                                (BusInputContext    *context,
++                                                 gboolean
++                                                                   with_signal);
++
+ G_END_DECLS
+ #endif
+diff --git a/client/gtk2/ibusimcontext.c b/client/gtk2/ibusimcontext.c
+index e4de52d9..73a0eaec 100644
+--- a/client/gtk2/ibusimcontext.c
++++ b/client/gtk2/ibusimcontext.c
+@@ -2,8 +2,8 @@
+ /* vim:set et sts=4: */
+ /* ibus - The Input Bus
+  * Copyright (C) 2008-2013 Peng Huang <shawn.p.huang@gmail.com>
+- * Copyright (C) 2015-2017 Takao Fujiwara <takao.fujiwara1@gmail.com>
+- * Copyright (C) 2008-2017 Red Hat, Inc.
++ * Copyright (C) 2015-2018 Takao Fujiwara <takao.fujiwara1@gmail.com>
++ * Copyright (C) 2008-2018 Red Hat, Inc.
+  *
+  * This library is free software; you can redistribute it and/or
+  * modify it under the terms of the GNU Lesser General Public
+@@ -61,6 +61,7 @@ struct _IBusIMContext {
+     PangoAttrList   *preedit_attrs;
+     gint             preedit_cursor_pos;
+     gboolean         preedit_visible;
++    guint            preedit_mode;
+ 
+     GdkRectangle     cursor_area;
+     gboolean         has_focus;
+@@ -132,8 +133,14 @@ static void     ibus_im_context_set_surrounding
+                                              gint           len,
+                                              gint           cursor_index);
+ 
+-
+ /* static methods*/
++static void     _ibus_context_update_preedit_text_cb
++                                           (IBusInputContext   *ibuscontext,
++                                            IBusText           *text,
++                                            gint                cursor_pos,
++                                            gboolean            visible,
++                                            guint               mode,
++                                            IBusIMContext      *ibusimcontext);
+ static void     _create_input_context       (IBusIMContext      *context);
+ static gboolean _set_cursor_location_internal
+                                             (IBusIMContext      *context);
+@@ -744,6 +751,7 @@ ibus_im_context_init (GObject *obj)
+     ibusimcontext->preedit_attrs = NULL;
+     ibusimcontext->preedit_cursor_pos = 0;
+     ibusimcontext->preedit_visible = FALSE;
++    ibusimcontext->preedit_mode = IBUS_ENGINE_PREEDIT_CLEAR;
+ 
+     // Init cursor area
+     ibusimcontext->cursor_area.x = -1;
+@@ -854,6 +862,24 @@ ibus_im_context_finalize (GObject *obj)
+     G_OBJECT_CLASS(parent_class)->finalize (obj);
+ }
+ 
++static void
++ibus_im_context_clear_preedit_text (IBusIMContext *ibusimcontext)
++{
++    g_assert (ibusimcontext->ibuscontext);
++    if (ibusimcontext->preedit_visible &&
++        ibusimcontext->preedit_mode == IBUS_ENGINE_PREEDIT_COMMIT) {
++        gchar *preedit_string = g_strdup (ibusimcontext->preedit_string);
++        _ibus_context_update_preedit_text_cb (ibusimcontext->ibuscontext,
++                                              ibus_text_new_from_string (""),
++                                              0,
++                                              FALSE,
++                                              IBUS_ENGINE_PREEDIT_CLEAR,
++                                              ibusimcontext);
++        g_signal_emit (ibusimcontext, _signal_commit_id, 0, preedit_string);
++        g_free (preedit_string);
++    }
++}
++
+ static gboolean
+ ibus_im_context_filter_keypress (GtkIMContext *context,
+                                  GdkEventKey  *event)
+@@ -1003,6 +1029,7 @@ ibus_im_context_focus_out (GtkIMContext *context)
+ 
+     ibusimcontext->has_focus = FALSE;
+     if (ibusimcontext->ibuscontext) {
++        ibus_im_context_clear_preedit_text (ibusimcontext);
+         ibus_input_context_focus_out (ibusimcontext->ibuscontext);
+     }
+ 
+@@ -1022,6 +1049,12 @@ ibus_im_context_reset (GtkIMContext *context)
+     IBusIMContext *ibusimcontext = IBUS_IM_CONTEXT (context);
+ 
+     if (ibusimcontext->ibuscontext) {
++        /* Commented out ibus_im_context_clear_preedit_text().
++         * Hangul needs to receive the reset callback with button press
++         * but other IMEs should avoid to receive the reset callback
++         * so the signal would need to be customized with GtkSetting.
++         * IBus uses button-press-event instead.
++         */
+         ibus_input_context_reset (ibusimcontext->ibuscontext);
+     }
+     gtk_im_context_reset (ibusimcontext->slave);
+@@ -1068,21 +1101,67 @@ ibus_im_context_get_preedit_string (GtkIMContext   *context,
+ }
+ 
+ 
++static gboolean
++ibus_im_context_button_press_event_cb (GtkWidget      *widget,
++                                       GdkEventButton *event,
++                                       IBusIMContext  *ibusimcontext)
++{
++    if (event->button != 1)
++        return FALSE;
++
++    if (ibusimcontext->preedit_visible &&
++        ibusimcontext->preedit_mode == IBUS_ENGINE_PREEDIT_COMMIT) {
++        ibus_im_context_clear_preedit_text (ibusimcontext);
++        if (ibusimcontext->ibuscontext)
++            ibus_input_context_reset (ibusimcontext->ibuscontext);
++    }
++    return FALSE;
++}
++
+ static void
+ ibus_im_context_set_client_window (GtkIMContext *context, GdkWindow *client)
+ {
++    IBusIMContext *ibusimcontext;
++#if !GTK_CHECK_VERSION (3, 93, 0)
++    GtkWidget *widget;
++#endif
++
+     IDEBUG ("%s", __FUNCTION__);
+ 
+-    IBusIMContext *ibusimcontext = IBUS_IM_CONTEXT (context);
++    ibusimcontext = IBUS_IM_CONTEXT (context);
+ 
+     if (ibusimcontext->client_window) {
++#if !GTK_CHECK_VERSION (3, 93, 0)
++        gdk_window_get_user_data (ibusimcontext->client_window,
++                                  (gpointer *)&widget);
++        /* firefox needs GtkWidget instead of GtkWindow */
++        if (GTK_IS_WIDGET (widget)) {
++            g_signal_handlers_disconnect_by_func (
++                    widget,
++                    (GCallback)ibus_im_context_button_press_event_cb,
++                    ibusimcontext);
++        }
++#endif
+         g_object_unref (ibusimcontext->client_window);
+         ibusimcontext->client_window = NULL;
+     }
+ 
+-    if (client != NULL)
++    if (client != NULL) {
+         ibusimcontext->client_window = g_object_ref (client);
++#if !GTK_CHECK_VERSION (3, 93, 0)
++        gdk_window_get_user_data (ibusimcontext->client_window,
++                                  (gpointer *)&widget);
+ 
++        /* firefox needs GtkWidget instead of GtkWindow */
++        if (GTK_IS_WIDGET (widget)) {
++            g_signal_connect (
++                    widget,
++                    "button-press-event",
++                    G_CALLBACK (ibus_im_context_button_press_event_cb),
++                    ibusimcontext);
++        }
++#endif
++    }
+     if (ibusimcontext->slave)
+         gtk_im_context_set_client_window (ibusimcontext->slave, client);
+ }
+@@ -1530,6 +1609,7 @@ _ibus_context_update_preedit_text_cb (IBusInputContext  *ibuscontext,
+                                       IBusText          *text,
+                                       gint               cursor_pos,
+                                       gboolean           visible,
++                                      guint              mode,
+                                       IBusIMContext     *ibusimcontext)
+ {
+     IDEBUG ("%s", __FUNCTION__);
+@@ -1586,6 +1666,7 @@ _ibus_context_update_preedit_text_cb (IBusInputContext  *ibuscontext,
+ 
+     flag = ibusimcontext->preedit_visible != visible;
+     ibusimcontext->preedit_visible = visible;
++    ibusimcontext->preedit_mode = mode;
+ 
+     if (ibusimcontext->preedit_visible) {
+         if (flag) {
+@@ -1676,7 +1757,7 @@ _create_input_context_done (IBusBus       *bus,
+         g_error_free (error);
+     }
+     else {
+-
++        ibus_input_context_set_client_commit_preedit (context, TRUE);
+         ibusimcontext->ibuscontext = context;
+ 
+         g_signal_connect (ibusimcontext->ibuscontext,
+@@ -1692,7 +1773,7 @@ _create_input_context_done (IBusBus       *bus,
+                           G_CALLBACK (_ibus_context_delete_surrounding_text_cb),
+                           ibusimcontext);
+         g_signal_connect (ibusimcontext->ibuscontext,
+-                          "update-preedit-text",
++                          "update-preedit-text-with-mode",
+                           G_CALLBACK (_ibus_context_update_preedit_text_cb),
+                           ibusimcontext);
+         g_signal_connect (ibusimcontext->ibuscontext,
+diff --git a/src/ibusinputcontext.c b/src/ibusinputcontext.c
+index ae7048ad..a809ef08 100644
+--- a/src/ibusinputcontext.c
++++ b/src/ibusinputcontext.c
+@@ -2,7 +2,8 @@
+ /* vim:set et sts=4: */
+ /* ibus - The Input Bus
+  * Copyright (C) 2008-2013 Peng Huang <shawn.p.huang@gmail.com>
+- * Copyright (C) 2008-2013 Red Hat, Inc.
++ * Copyright (C) 2018 Takao Fujiwara <takao.fujiwara1@gmail.com>
++ * Copyright (C) 2008-2018 Red Hat, Inc.
+  *
+  * This library is free software; you can redistribute it and/or
+  * modify it under the terms of the GNU Lesser General Public
+@@ -39,6 +40,7 @@ enum {
+     FORWARD_KEY_EVENT,
+     DELETE_SURROUNDING_TEXT,
+     UPDATE_PREEDIT_TEXT,
++    UPDATE_PREEDIT_TEXT_WITH_MODE,
+     SHOW_PREEDIT_TEXT,
+     HIDE_PREEDIT_TEXT,
+     UPDATE_AUXILIARY_TEXT,
+@@ -217,6 +219,34 @@ ibus_input_context_class_init (IBusInputContextClass *class)
+             G_TYPE_UINT,
+             G_TYPE_BOOLEAN);
+ 
++    /**
++     * IBusInputContext::update-preedit-text-with-mode:
++     * @context: An IBusInputContext.
++     * @text: Text to be updated.
++     * @cursor_pos: Cursor position.
++     * @visible: Whether the update is visible.
++     * @mode: Preedit mode.
++     *
++     * Emitted to update preedit text with the mode.
++     *
++     * (Note: The text object is floating, and it will be released after the
++     *  signal. If signal handler wants to keep the object, the handler should
++     *  use g_object_ref_sink() to get the ownership of the object.)
++     */
++    context_signals[UPDATE_PREEDIT_TEXT_WITH_MODE] =
++        g_signal_new (I_("update-preedit-text-with-mode"),
++            G_TYPE_FROM_CLASS (class),
++            G_SIGNAL_RUN_LAST,
++            0,
++            NULL, NULL,
++            _ibus_marshal_VOID__OBJECT_UINT_BOOLEAN_UINT,
++            G_TYPE_NONE,
++            4,
++            IBUS_TYPE_TEXT,
++            G_TYPE_UINT,
++            G_TYPE_BOOLEAN,
++            G_TYPE_UINT);
++
+     /**
+      * IBusInputContext::show-preedit-text:
+      * @context: An IBusInputContext.
+@@ -542,6 +572,28 @@ ibus_input_context_g_signal (GDBusProxy  *proxy,
+             g_object_unref (text);
+         return;
+     }
++    if (g_strcmp0 (signal_name, "UpdatePreeditTextWithMode") == 0) {
++        GVariant *variant = NULL;
++        gint32 cursor_pos;
++        gboolean visible;
++        guint mode = 0;
++        g_variant_get (parameters,
++                       "(vubu)", &variant, &cursor_pos, &visible, &mode);
++        IBusText *text = IBUS_TEXT (ibus_serializable_deserialize (variant));
++        g_variant_unref (variant);
++
++        g_signal_emit (context,
++                       context_signals[UPDATE_PREEDIT_TEXT_WITH_MODE],
++                       0,
++                       text,
++                       cursor_pos,
++                       visible,
++                       mode);
++
++        if (g_object_is_floating (text))
++            g_object_unref (text);
++        return;
++    }
+ 
+     /* lookup signal in table */
+     gint i;
+@@ -1043,10 +1095,11 @@ ibus_input_context_set_surrounding_text (IBusInputContext   *context,
+                                          guint32             cursor_pos,
+                                          guint32             anchor_pos)
+ {
++    IBusInputContextPrivate *priv;
++
+     g_assert (IBUS_IS_INPUT_CONTEXT (context));
+     g_assert (IBUS_IS_TEXT (text));
+ 
+-    IBusInputContextPrivate *priv;
+     priv = IBUS_INPUT_CONTEXT_GET_PRIVATE (context);
+ 
+     if (cursor_pos != priv->surrounding_cursor_pos ||
+@@ -1090,12 +1143,15 @@ ibus_input_context_set_content_type (IBusInputContext *context,
+                                      guint             purpose,
+                                      guint             hints)
+ {
++    GVariant *cached_content_type;
++    GVariant *content_type;
++
+     g_assert (IBUS_IS_INPUT_CONTEXT (context));
+ 
+-    GVariant *cached_content_type =
++    cached_content_type =
+         g_dbus_proxy_get_cached_property ((GDBusProxy *) context,
+                                           "ContentType");
+-    GVariant *content_type = g_variant_new ("(uu)", purpose, hints);
++    content_type = g_variant_new ("(uu)", purpose, hints);
+ 
+     g_variant_ref_sink (content_type);
+     if (cached_content_type == NULL ||
+@@ -1142,18 +1198,22 @@ ibus_input_context_get_engine_async_finish (IBusInputContext   *context,
+                                             GAsyncResult       *res,
+                                             GError            **error)
+ {
++    GVariant *variant;
++    GVariant *engine_desc_variant;
++    IBusEngineDesc *desc;
++
+     g_assert (IBUS_IS_INPUT_CONTEXT (context));
+     g_assert (G_IS_ASYNC_RESULT (res));
+     g_assert (error == NULL || *error == NULL);
+ 
+-    GVariant *variant = g_dbus_proxy_call_finish ((GDBusProxy *) context,
+-                                                   res, error);
++    variant = g_dbus_proxy_call_finish ((GDBusProxy *) context, res, error);
+     if (variant == NULL) {
+         return NULL;
+     }
+ 
+-    GVariant *engine_desc_variant = g_variant_get_child_value (variant, 0);
+-    IBusEngineDesc *desc = IBUS_ENGINE_DESC (ibus_serializable_deserialize (engine_desc_variant));
++    engine_desc_variant = g_variant_get_child_value (variant, 0);
++    desc = IBUS_ENGINE_DESC (
++            ibus_serializable_deserialize (engine_desc_variant));
+     g_variant_unref (engine_desc_variant);
+     g_variant_unref (variant);
+ 
+@@ -1163,9 +1223,13 @@ ibus_input_context_get_engine_async_finish (IBusInputContext   *context,
+ IBusEngineDesc *
+ ibus_input_context_get_engine (IBusInputContext *context)
+ {
+-    g_assert (IBUS_IS_INPUT_CONTEXT (context));
+     GVariant *result = NULL;
+     GError *error = NULL;
++    GVariant *engine_desc_variant;
++    IBusEngineDesc *desc;
++
++    g_assert (IBUS_IS_INPUT_CONTEXT (context));
++
+     result = g_dbus_proxy_call_sync ((GDBusProxy *) context,
+                                      "GetEngine",               /* method_name */
+                                      NULL,                      /* parameters */
+@@ -1189,8 +1253,9 @@ ibus_input_context_get_engine (IBusInputContext *context)
+         return NULL;
+     }
+ 
+-    GVariant *engine_desc_variant = g_variant_get_child_value (result, 0);
+-    IBusEngineDesc *desc = IBUS_ENGINE_DESC (ibus_serializable_deserialize (engine_desc_variant));
++    engine_desc_variant = g_variant_get_child_value (result, 0);
++    desc = IBUS_ENGINE_DESC (
++            ibus_serializable_deserialize (engine_desc_variant));
+     g_variant_unref (engine_desc_variant);
+     g_variant_unref (result);
+ 
+@@ -1214,6 +1279,41 @@ ibus_input_context_set_engine (IBusInputContext *context,
+                        );
+ }
+ 
++void
++ibus_input_context_set_client_commit_preedit (IBusInputContext *context,
++                                              gboolean          client_commit)
++{
++    GVariant *cached_content_type;
++    GVariant *var_client_commit;
++
++    g_assert (IBUS_IS_INPUT_CONTEXT (context));
++
++    cached_content_type =
++        g_dbus_proxy_get_cached_property ((GDBusProxy *) context,
++                                          "ClientCommitPreedit");
++    var_client_commit = g_variant_new ("(b)", client_commit);
++
++    g_variant_ref_sink (var_client_commit);
++    if (cached_content_type == NULL) {
++        g_dbus_proxy_call ((GDBusProxy *) context,
++                           "org.freedesktop.DBus.Properties.Set",
++                           g_variant_new ("(ssv)",
++                                          IBUS_INTERFACE_INPUT_CONTEXT,
++                                          "ClientCommitPreedit",
++                                          var_client_commit),
++                           G_DBUS_CALL_FLAGS_NONE,
++                           -1,
++                           NULL, /* cancellable */
++                           NULL, /* callback */
++                           NULL  /* user_data */
++                           );
++    }
++
++    if (cached_content_type != NULL)
++        g_variant_unref (cached_content_type);
++    g_variant_unref (var_client_commit);
++}
++
+ #define DEFINE_FUNC(name, Name)                                         \
+     void                                                                \
+     ibus_input_context_##name (IBusInputContext *context)               \
+diff --git a/src/ibusinputcontext.h b/src/ibusinputcontext.h
+index a77cf92f..09992148 100644
+--- a/src/ibusinputcontext.h
++++ b/src/ibusinputcontext.h
+@@ -2,7 +2,8 @@
+ /* vim:set et sts=4: */
+ /* ibus - The Input Bus
+  * Copyright (C) 2008-2013 Peng Huang <shawn.p.huang@gmail.com>
+- * Copyright (C) 2008-2013 Red Hat, Inc.
++ * Copyright (C) 2018 Takao Fujiwara <takao.fujiwara1@gmail.com>
++ * Copyright (C) 2008-2018 Red Hat, Inc.
+  *
+  * This library is free software; you can redistribute it and/or
+  * modify it under the terms of the GNU Lesser General Public
+@@ -498,5 +499,29 @@ void         ibus_input_context_set_content_type
+                                              guint               purpose,
+                                              guint               hints);
+ 
++/**
++ * ibus_input_context_set_client_commit_preedit:
++ * @context: An #IBusInputContext.
++ * @client_commit: %TRUE if your input context commits pre-edit texts
++ *     with Space or Enter key events or mouse click events. %FALSE if
++ *     ibus-daemon commits pre-edit texts with those events.
++ *     The default is %FALSE. The behavior is decided with
++ *     ibus_engine_update_preedit_text_with_mode() to commit, clear or
++ *     keep the pre-edit text and this API is important in ibus-hangul.
++ *
++ * Set whether #IBusInputContext commits pre-edit texts or not.
++ * If %TRUE, 'update-preedit-text-with-mode' signal is emitted
++ * instead of 'update-preedit-text' signal.
++ * If your client receives the 'update-preedit-text-with-mode' signal,
++ * the client needs to implement commit_text() of pre-edit text when
++ * GtkIMContextClass.focus_out() is called in case an IME desires that
++ * behavior but it depends on each IME.
++ *
++ * See also ibus_engine_update_preedit_text_with_mode().
++ */
++void         ibus_input_context_set_client_commit_preedit (
++                                             IBusInputContext   *context,
++                                             gboolean            client_commit);
++
+ G_END_DECLS
+ #endif
+-- 
+2.19.1
+
+From 7b3b8c8b0c6a41ab524e0be9474825da9cba96ac Mon Sep 17 00:00:00 2001
+From: fujiwarat <takao.fujiwara1@gmail.com>
+Date: Tue, 13 Nov 2018 14:27:52 +0900
+Subject: [PATCH 2/4] client/gtk2: Do not delete IBUS_CAP_SURROUNDING_TEXT
+
+retrieve-surrounding signal could be failed with the first typing
+on firefox. It could be a bug in firefox but now IBusIMContext does not
+delete IBUS_CAP_SURROUNDING_TEXT in the capabilities as a workaround
+when retrieve-surrounding signal is failed.
+Also added retrieve-surrounding signal after some committing text.
+
+BUG=https://github.com/ibus/ibus/issues/2054
+---
+ client/gtk2/ibusimcontext.c | 11 ++++++++---
+ 1 file changed, 8 insertions(+), 3 deletions(-)
+
+diff --git a/client/gtk2/ibusimcontext.c b/client/gtk2/ibusimcontext.c
+index 73a0eaec..82af51a1 100644
+--- a/client/gtk2/ibusimcontext.c
++++ b/client/gtk2/ibusimcontext.c
+@@ -298,6 +298,7 @@ ibus_im_context_commit_event (IBusIMContext *ibusimcontext,
+         IBusText *text = ibus_text_new_from_unichar (ch);
+         g_signal_emit (ibusimcontext, _signal_commit_id, 0, text->text);
+         g_object_unref (text);
++        _request_surrounding_text (ibusimcontext);
+         return TRUE;
+     }
+    return FALSE;
+@@ -386,9 +387,12 @@ _request_surrounding_text (IBusIMContext *context)
+         g_signal_emit (context, _signal_retrieve_surrounding_id, 0,
+                        &return_value);
+         if (!return_value) {
+-            context->caps &= ~IBUS_CAP_SURROUNDING_TEXT;
+-            ibus_input_context_set_capabilities (context->ibuscontext,
+-                                                 context->caps);
++            /* #2054 firefox::IMContextWrapper::GetCurrentParagraph() could
++             * fail with the first typing on firefox but it succeeds with
++             * the second typing.
++             */
++            g_warning ("%s has no capability of surrounding-text feature",
++                       g_get_prgname ());
+         }
+     }
+ }
+@@ -877,6 +881,7 @@ ibus_im_context_clear_preedit_text (IBusIMContext *ibusimcontext)
+                                               ibusimcontext);
+         g_signal_emit (ibusimcontext, _signal_commit_id, 0, preedit_string);
+         g_free (preedit_string);
++        _request_surrounding_text (ibusimcontext);
+     }
+ }
+ 
+-- 
+2.19.1
+
+From 4c40afba9c862b4f6651b1b971553e5e89e83343 Mon Sep 17 00:00:00 2001
+From: fujiwarat <takao.fujiwara1@gmail.com>
+Date: Thu, 6 Dec 2018 16:53:57 +0900
+Subject: [PATCH 3/4] client/gtk2: Always reset and clear preedit on mouse
+ click
+
+Thinking about the reset signal again, now I think it's good to emit
+the reset signal and clear the preedit on mouse click for any engines
+besides Hangul because the behavior could be handled by each engine
+with the reset signal.
+
+BUG=https://github.com/ibus/ibus/issues/1980
+---
+ client/gtk2/ibusimcontext.c | 26 +++++++++++++-------------
+ 1 file changed, 13 insertions(+), 13 deletions(-)
+
+diff --git a/client/gtk2/ibusimcontext.c b/client/gtk2/ibusimcontext.c
+index 82af51a1..ed7fea6e 100644
+--- a/client/gtk2/ibusimcontext.c
++++ b/client/gtk2/ibusimcontext.c
+@@ -869,16 +869,19 @@ ibus_im_context_finalize (GObject *obj)
+ static void
+ ibus_im_context_clear_preedit_text (IBusIMContext *ibusimcontext)
+ {
++    gchar *preedit_string = NULL;
+     g_assert (ibusimcontext->ibuscontext);
+     if (ibusimcontext->preedit_visible &&
+         ibusimcontext->preedit_mode == IBUS_ENGINE_PREEDIT_COMMIT) {
+-        gchar *preedit_string = g_strdup (ibusimcontext->preedit_string);
+-        _ibus_context_update_preedit_text_cb (ibusimcontext->ibuscontext,
+-                                              ibus_text_new_from_string (""),
+-                                              0,
+-                                              FALSE,
+-                                              IBUS_ENGINE_PREEDIT_CLEAR,
+-                                              ibusimcontext);
++        preedit_string = g_strdup (ibusimcontext->preedit_string);
++    }
++    _ibus_context_update_preedit_text_cb (ibusimcontext->ibuscontext,
++                                          ibus_text_new_from_string (""),
++                                          0,
++                                          FALSE,
++                                          IBUS_ENGINE_PREEDIT_CLEAR,
++                                          ibusimcontext);
++    if (preedit_string) {
+         g_signal_emit (ibusimcontext, _signal_commit_id, 0, preedit_string);
+         g_free (preedit_string);
+         _request_surrounding_text (ibusimcontext);
+@@ -1114,12 +1117,9 @@ ibus_im_context_button_press_event_cb (GtkWidget      *widget,
+     if (event->button != 1)
+         return FALSE;
+ 
+-    if (ibusimcontext->preedit_visible &&
+-        ibusimcontext->preedit_mode == IBUS_ENGINE_PREEDIT_COMMIT) {
+-        ibus_im_context_clear_preedit_text (ibusimcontext);
+-        if (ibusimcontext->ibuscontext)
+-            ibus_input_context_reset (ibusimcontext->ibuscontext);
+-    }
++    ibus_im_context_clear_preedit_text (ibusimcontext);
++    if (ibusimcontext->ibuscontext)
++        ibus_input_context_reset (ibusimcontext->ibuscontext);
+     return FALSE;
+ }
+ 
+-- 
+2.19.1
+
+From c7d8771cb9fc652cb638aa7cb8e10ea6b889509e Mon Sep 17 00:00:00 2001
+From: fujiwarat <takao.fujiwara1@gmail.com>
+Date: Tue, 11 Dec 2018 19:16:10 +0900
+Subject: [PATCH 4/4] client/gtk2: Fix SEGV on mouse clicks when ibus-daemon
+ not running
+
+---
+ client/gtk2/ibusimcontext.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/client/gtk2/ibusimcontext.c b/client/gtk2/ibusimcontext.c
+index ed7fea6e..ab7ff88a 100644
+--- a/client/gtk2/ibusimcontext.c
++++ b/client/gtk2/ibusimcontext.c
+@@ -1117,9 +1117,10 @@ ibus_im_context_button_press_event_cb (GtkWidget      *widget,
+     if (event->button != 1)
+         return FALSE;
+ 
+-    ibus_im_context_clear_preedit_text (ibusimcontext);
+-    if (ibusimcontext->ibuscontext)
++    if (ibusimcontext->ibuscontext) {
++        ibus_im_context_clear_preedit_text (ibusimcontext);
+         ibus_input_context_reset (ibusimcontext->ibuscontext);
++    }
+     return FALSE;
+ }
+ 
+-- 
+2.19.1
+
+From 9ae2d4658fff3d1e7262fb4fb7ca9ce1af0a27ec Mon Sep 17 00:00:00 2001
+From: fujiwarat <takao.fujiwara1@gmail.com>
+Date: Thu, 20 Dec 2018 16:40:31 +0900
+Subject: [PATCH] client/gtk2: Use button-press-event only with
+ IBUS_ENGINE_PREEDIT_COMMIT
+
+BUG=https://github.com/ibus/ibus/issues/1980
+---
+ client/gtk2/ibusimcontext.c | 66 ++++++++++++++++++++++++-------------
+ 1 file changed, 43 insertions(+), 23 deletions(-)
+
+diff --git a/client/gtk2/ibusimcontext.c b/client/gtk2/ibusimcontext.c
+index ab7ff88a..f9310867 100644
+--- a/client/gtk2/ibusimcontext.c
++++ b/client/gtk2/ibusimcontext.c
+@@ -72,6 +72,8 @@ struct _IBusIMContext {
+     /* cancellable */
+     GCancellable    *cancellable;
+     GQueue          *events_queue;
++
++    gboolean use_button_press_event;
+ };
+ 
+ struct _IBusIMContextClass {
+@@ -1109,6 +1111,7 @@ ibus_im_context_get_preedit_string (GtkIMContext   *context,
+ }
+ 
+ 
++#if !GTK_CHECK_VERSION (3, 93, 0)
+ static gboolean
+ ibus_im_context_button_press_event_cb (GtkWidget      *widget,
+                                        GdkEventButton *event,
+@@ -1124,13 +1127,37 @@ ibus_im_context_button_press_event_cb (GtkWidget      *widget,
+     return FALSE;
+ }
+ 
++static void
++_connect_button_press_event (IBusIMContext *ibusimcontext,
++                             gboolean       do_connect)
++{
++    GtkWidget *widget = NULL;
++
++    g_assert (ibusimcontext->client_window);
++    gdk_window_get_user_data (ibusimcontext->client_window,
++                              (gpointer *)&widget);
++    /* firefox needs GtkWidget instead of GtkWindow */
++    if (GTK_IS_WIDGET (widget)) {
++        if (do_connect) {
++            g_signal_connect (
++                    widget,
++                    "button-press-event",
++                    G_CALLBACK (ibus_im_context_button_press_event_cb),
++                    ibusimcontext);
++        } else {
++            g_signal_handlers_disconnect_by_func (
++                    widget,
++                    G_CALLBACK (ibus_im_context_button_press_event_cb),
++                    ibusimcontext);
++        }
++    }
++}
++#endif
++
+ static void
+ ibus_im_context_set_client_window (GtkIMContext *context, GdkWindow *client)
+ {
+     IBusIMContext *ibusimcontext;
+-#if !GTK_CHECK_VERSION (3, 93, 0)
+-    GtkWidget *widget;
+-#endif
+ 
+     IDEBUG ("%s", __FUNCTION__);
+ 
+@@ -1138,15 +1165,8 @@ ibus_im_context_set_client_window (GtkIMContext *context, GdkWindow *client)
+ 
+     if (ibusimcontext->client_window) {
+ #if !GTK_CHECK_VERSION (3, 93, 0)
+-        gdk_window_get_user_data (ibusimcontext->client_window,
+-                                  (gpointer *)&widget);
+-        /* firefox needs GtkWidget instead of GtkWindow */
+-        if (GTK_IS_WIDGET (widget)) {
+-            g_signal_handlers_disconnect_by_func (
+-                    widget,
+-                    (GCallback)ibus_im_context_button_press_event_cb,
+-                    ibusimcontext);
+-        }
++        if (ibusimcontext->use_button_press_event)
++            _connect_button_press_event (ibusimcontext, FALSE);
+ #endif
+         g_object_unref (ibusimcontext->client_window);
+         ibusimcontext->client_window = NULL;
+@@ -1155,17 +1175,8 @@ ibus_im_context_set_client_window (GtkIMContext *context, GdkWindow *client)
+     if (client != NULL) {
+         ibusimcontext->client_window = g_object_ref (client);
+ #if !GTK_CHECK_VERSION (3, 93, 0)
+-        gdk_window_get_user_data (ibusimcontext->client_window,
+-                                  (gpointer *)&widget);
+-
+-        /* firefox needs GtkWidget instead of GtkWindow */
+-        if (GTK_IS_WIDGET (widget)) {
+-            g_signal_connect (
+-                    widget,
+-                    "button-press-event",
+-                    G_CALLBACK (ibus_im_context_button_press_event_cb),
+-                    ibusimcontext);
+-        }
++        if (ibusimcontext->use_button_press_event)
++            _connect_button_press_event (ibusimcontext, TRUE);
+ #endif
+     }
+     if (ibusimcontext->slave)
+@@ -1631,6 +1642,15 @@ _ibus_context_update_preedit_text_cb (IBusInputContext  *ibuscontext,
+         ibusimcontext->preedit_attrs = NULL;
+     }
+ 
++    if (!ibusimcontext->use_button_press_event &&
++        mode == IBUS_ENGINE_PREEDIT_COMMIT) {
++#if !GTK_CHECK_VERSION (3, 93, 0)
++        if (ibusimcontext->client_window)
++            _connect_button_press_event (ibusimcontext, TRUE);
++#endif
++        ibusimcontext->use_button_press_event = TRUE;
++    }
++
+     str = text->text;
+     ibusimcontext->preedit_string = g_strdup (str);
+     if (text->attrs) {
+-- 
+2.19.1
+

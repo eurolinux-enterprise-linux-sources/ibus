@@ -13,12 +13,6 @@
 %global with_kde5 0
 %endif
 
-%if (0%{?fedora})
-%global with_emoji_harfbuzz 1
-%else
-%global with_emoji_harfbuzz 0
-%endif
-
 %if (0%{?fedora} || 0%{?rhel} > 7)
 %global with_wayland_weston 1
 %else
@@ -46,7 +40,7 @@
 
 Name:           ibus
 Version:        1.5.17
-Release:        2%{?dist}
+Release:        5%{?dist}
 Summary:        Intelligent Input Bus for Linux OS
 License:        LGPLv2+
 Group:          System Environment/Libraries
@@ -62,10 +56,8 @@ Source4:        %{name}-emoji-test.txt
 # Will remove the annotation tarball once the rpm is available on Fedora
 # Upstreamed patches.
 # Patch0:         %%{name}-HEAD.patch
-%if %with_emoji_harfbuzz
-# Under testing self rendering until Pango, Fontconfig, Cairo are stable
-# Patch1:         %{name}-xx-emoji-harfbuzz.patch
-%endif
+Patch1:         %{name}-1612432-commit-with-mouse.patch
+Patch2:         %{name}-1612432-click-firefox-anywhere.patch
 
 
 BuildRequires:  gettext-devel
@@ -104,11 +96,6 @@ BuildRequires:  qt5-qtbase-devel
 %if (0%{?fedora} || 0%{?rhel} > 7)
 BuildRequires:  cldr-emoji-annotation
 BuildRequires:  unicode-emoji
-%endif
-%if %with_emoji_harfbuzz
-BuildRequires:  cairo-devel
-BuildRequires:  fontconfig-devel
-BuildRequires:  harfbuzz-devel
 %endif
 
 Requires:       %{name}-libs%{?_isa}   = %{version}-%{release}
@@ -286,10 +273,10 @@ zcat %SOURCE3 | tar xf -
 mkdir emoji
 cp %SOURCE4 emoji/emoji-test.txt
 # %%patch0 -p1
+%patch1 -p1 -z .hangul
+%patch2 -p1 -z .click-anywhere
 # cp client/gtk2/ibusimcontext.c client/gtk3/ibusimcontext.c ||
-%if %with_emoji_harfbuzz
-# %%patch1 -p1 -z .hb
-%endif
+cp client/gtk2/ibusimcontext.c client/gtk3/ibusimcontext.c ||
 
 # prep test
 diff client/gtk2/ibusimcontext.c client/gtk3/ibusimcontext.c
@@ -321,9 +308,6 @@ autoreconf -f -i -v
 %endif
 %if ! %with_kde5
     --disable-appindicator \
-%endif
-%if %with_emoji_harfbuzz
-    --enable-harfbuzz-for-emoji \
 %endif
 %if (0%{?rhel} > 6)
     --with-emoji-annotation-dir=$PWD/cldr-emoji-annotation-32.0.0_1/annotations \
@@ -508,6 +492,15 @@ gtk-query-immodules-3.0-%{__isa_bits} --update-cache &> /dev/null || :
 %{_datadir}/gtk-doc/html/*
 
 %changelog
+* Tue May 07 2019 Takao Fujiwara <tfujiwar@redhat.com> - 1.5.17-5
+- Resolves: #1693926 - Commit hangul preedit with clicking out of URL bar
+
+* Wed Apr 24 2019 Takao Fujiwara <tfujiwar@redhat.com> - 1.5.17-4
+- Resolves: #1693926 - Commit hangul preedit with mouse
+
+* Fri Mar 22 2019 Takao Fujiwara <tfujiwar@redhat.com> - 1.5.17-3
+- Resolves: #1671187 - ibus.conf does not set QT_IM_MODULE with qt5 ibus module
+
 * Mon Nov 06 2017 Takao Fujiwara <tfujiwar@redhat.com> - 1.5.17-2
 - Resolves: #1488582 - delete ibus-wayland for RHEL7 inspection
 
