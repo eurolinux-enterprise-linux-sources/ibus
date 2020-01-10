@@ -1,23 +1,23 @@
 /* -*- mode: C; c-basic-offset: 4; indent-tabs-mode: nil; -*- */
 /* vim:set et sts=4: */
 /* ibus - The Input Bus
- * Copyright (C) 2008-2013 Peng Huang <shawn.p.huang@gmail.com>
- * Copyright (C) 2008-2013 Red Hat, Inc.
+ * Copyright (C) 2008-2010 Peng Huang <shawn.p.huang@gmail.com>
+ * Copyright (C) 2008-2010 Red Hat, Inc.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
- * version 2.1 of the License, or (at your option) any later version.
+ * version 2 of the License, or (at your option) any later version.
  *
  * This library is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.	 See the GNU
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301
- * USA
+ * License along with this library; if not, write to the
+ * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
+ * Boston, MA 02111-1307, USA.
  */
 #include "ibusengine.h"
 #include <stdarg.h>
@@ -49,7 +49,6 @@ enum {
     SET_SURROUNDING_TEXT,
     PROCESS_HAND_WRITING_EVENT,
     CANCEL_HAND_WRITING,
-    SET_CONTENT_TYPE,
     LAST_SIGNAL,
 };
 
@@ -69,10 +68,6 @@ struct _IBusEnginePrivate {
     IBusText *surrounding_text;
     guint surrounding_cursor_pos;
     guint selection_anchor_pos;
-
-    /* cached content-type */
-    guint content_purpose;
-    guint content_hints;
 };
 
 static guint            engine_signals[LAST_SIGNAL] = { 0 };
@@ -164,17 +159,9 @@ static void      ibus_engine_process_hand_writing_event
 static void      ibus_engine_cancel_hand_writing
                                              (IBusEngine         *engine,
                                               guint               n_strokes);
-static void      ibus_engine_set_content_type
-                                             (IBusEngine         *engine,
-                                              guint               purpose,
-                                              guint               hints);
 static void      ibus_engine_emit_signal     (IBusEngine         *engine,
                                               const gchar        *signal_name,
                                               GVariant           *parameters);
-static void      ibus_engine_dbus_property_changed
-                                             (IBusEngine         *engine,
-                                              const gchar        *property_name,
-                                              GVariant           *value);
 
 
 G_DEFINE_TYPE (IBusEngine, ibus_engine, IBUS_TYPE_SERVICE)
@@ -262,8 +249,6 @@ static const gchar introspection_xml[] =
     "      <arg type='u' name='keycode' />"
     "      <arg type='u' name='state' />"
     "    </signal>"
-    /* FIXME properties */
-    "    <property name='ContentType' type='(uu)' access='write' />"
     "  </interface>"
     "</node>";
 
@@ -304,7 +289,6 @@ ibus_engine_class_init (IBusEngineClass *class)
     class->process_hand_writing_event
                                 = ibus_engine_process_hand_writing_event;
     class->cancel_hand_writing  = ibus_engine_cancel_hand_writing;
-    class->set_content_type     = ibus_engine_set_content_type;
 
     /* install properties */
     /**
@@ -331,13 +315,12 @@ ibus_engine_class_init (IBusEngineClass *class)
      * @state: Key modifier flags.
      *
      * Emitted when a key event is received.
-     * Implement the member function IBusEngineClass::process_key_event
-     * in extended class to receive this signal.
+     * Implement the member function process_key_event() in extended class to receive this signal.
      * Both the key symbol and keycode are passed to the member function.
      * See ibus_input_context_process_key_event() for further explanation of
      * key symbol, keycode and which to use.
      *
-     * Returns: %TRUE for successfully process the key; %FALSE otherwise.
+     * Returns: TRUE for successfully process the key; FALSE otherwise.
      * See also:  ibus_input_context_process_key_event().
      *
      * <note><para>Argument @user_data is ignored in this function.</para></note>
@@ -360,8 +343,7 @@ ibus_engine_class_init (IBusEngineClass *class)
      * @engine: An IBusEngine.
      *
      * Emitted when the client application get the focus.
-     * Implement the member function IBusEngineClass::focus_in
-     * in extended class to receive this signal.
+     * Implement the member function focus_in() in extended class to receive this signal.
      *
      * See also: ibus_input_context_focus_in()
      * <note><para>Argument @user_data is ignored in this function.</para></note>
@@ -381,8 +363,7 @@ ibus_engine_class_init (IBusEngineClass *class)
      * @engine: An IBusEngine.
      *
      * Emitted when the client application  lost the focus.
-     * Implement the member function IBusEngineClass::focus_out
-     * in extended class to receive this signal.
+     * Implement the member function focus_out() in extended class to receive this signal.
      *
      * See also: ibus_input_context_focus_out()
      * <note><para>Argument @user_data is ignored in this function.</para></note>
@@ -402,8 +383,7 @@ ibus_engine_class_init (IBusEngineClass *class)
      * @engine: An IBusEngine.
      *
      * Emitted when the IME is reset.
-     * Implement the member function IBusEngineClass::reset
-     * in extended class to receive this signal.
+     * Implement the member function reset() in extended class to receive this signal.
      *
      * See also:  ibus_input_context_reset().
      * <note><para>Argument @user_data is ignored in this function.</para></note>
@@ -423,10 +403,9 @@ ibus_engine_class_init (IBusEngineClass *class)
      * @engine: An IBusEngine.
      *
      * Emitted when the IME is enabled.
-     * Implement the member function IBusEngineClass::enable
-     * in extended class to receive this signal.
+     * Implement the member function set_enable() in extended class to receive this signal.
      *
-     * See also:  ibus_bus_set_global_engine().
+     * See also:  ibus_input_context_enable().
      * <note><para>Argument @user_data is ignored in this function.</para></note>
      */
     engine_signals[ENABLE] =
@@ -444,10 +423,9 @@ ibus_engine_class_init (IBusEngineClass *class)
      * @engine: An IBusEngine.
      *
      * Emitted when the IME is disabled.
-     * Implement the member function IBusEngineClass::disable
-     * in extended class to receive this signal.
+     * Implement the member function set_disable() in extended class to receive this signal.
      *
-     * See also:  ibus_bus_set_global_engine().
+     * See also:  ibus_input_context_disable().
      * <note><para>Argument @user_data is ignored in this function.</para></note>
      */
     engine_signals[DISABLE] =
@@ -469,8 +447,7 @@ ibus_engine_class_init (IBusEngineClass *class)
      * @h: Height of the cursor.
      *
      * Emitted when the location of IME is set.
-     * Implement the member function IBusEngineClass::set_cursor_location
-     * in extended class to receive this signal.
+     * Implement the member function set_cursor_location() in extended class to receive this signal.
      *
      * See also:  ibus_input_context_set_cursor_location().
      * <note><para>Argument @user_data is ignored in this function.</para></note>
@@ -495,8 +472,7 @@ ibus_engine_class_init (IBusEngineClass *class)
      * @caps: Capabilities flags of IBusEngine, see #IBusCapabilite
      *
      * Emitted when the client application capabilities is set.
-     * Implement the member function IBusEngineClass::set_capabilities
-     * in extended class to receive this signal.
+     * Implement the member function set_capabilities() in extended class to receive this signal.
      *
      * See also:  ibus_input_context_set_capabilities().
      * <note><para>Argument @user_data is ignored in this function.</para></note>
@@ -517,8 +493,7 @@ ibus_engine_class_init (IBusEngineClass *class)
      * @engine: An IBusEngine.
      *
      * Emitted when the page-up button is pressed.
-     * Implement the member function IBusEngineClass::page_up
-     * in extended class to receive this signal.
+     * Implement the member function page_up() in extended class to receive this signal.
      *
      * <note><para>Argument @user_data is ignored in this function.</para></note>
      */
@@ -537,8 +512,7 @@ ibus_engine_class_init (IBusEngineClass *class)
      * @engine: An IBusEngine.
      *
      * Emitted when the page-down button is pressed.
-     * Implement the member function IBusEngineClass::page_down
-     * in extended class to receive this signal.
+     * Implement the member function page_down() in extended class to receive this signal.
      *
      * <note><para>Argument @user_data is ignored in this function.</para></note>
      */
@@ -557,8 +531,7 @@ ibus_engine_class_init (IBusEngineClass *class)
      * @engine: An IBusEngine.
      *
      * Emitted when the up cursor button is pressed.
-     * Implement the member function IBusEngineClass::cursor_up
-     * in extended class to receive this signal.
+     * Implement the member function cursor_up() in extended class to receive this signal.
      *
      * <note><para>Argument @user_data is ignored in this function.</para></note>
      */
@@ -577,8 +550,7 @@ ibus_engine_class_init (IBusEngineClass *class)
      * @engine: An IBusEngine.
      *
      * Emitted when the down cursor button is pressed.
-     * Implement the member function IBusEngineClass::cursor_down
-     * in extended class to receive this signal.
+     * Implement the member function cursor_down() in extended class to receive this signal.
      *
      * <note><para>Argument @user_data is ignored in this function.</para></note>
      */
@@ -600,8 +572,7 @@ ibus_engine_class_init (IBusEngineClass *class)
      * @state:  Keyboard state.
      *
      * Emitted when candidate on lookup table is clicked.
-     * Implement the member function IBusEngineClass::candidate_clicked
-     * in extended class to receive this signal.
+     * Implement the member function candidate_clicked() in extended class to receive this signal.
      *
      * <note><para>Argument @user_data is ignored in this function.</para></note>
      */
@@ -625,8 +596,7 @@ ibus_engine_class_init (IBusEngineClass *class)
      * @state:  Property state.
      *
      * Emitted when a property is activated or change changed.
-     * Implement the member function IBusEngineClass::property_activate
-     * in extended class to receive this signal.
+     * Implement the member function property_activate() in extended class to receive this signal.
      *
      * <note><para>Argument @user_data is ignored in this function.</para></note>
      */
@@ -648,8 +618,7 @@ ibus_engine_class_init (IBusEngineClass *class)
      * @name:   Property name.
      *
      * Emitted when a property is shown.
-     * Implement the member function IBusEngineClass::property_side
-     * in extended class to receive this signal.
+     * Implement the member function property_side() in extended class to receive this signal.
      *
      * <note><para>Argument @user_data is ignored in this function.</para></note>
      */
@@ -670,8 +639,7 @@ ibus_engine_class_init (IBusEngineClass *class)
      * @name:   Property name.
      *
      * Emitted when a property is hidden.
-     * Implement the member function IBusEngineClass::property_hide
-     * in extended class to receive this signal.
+     * Implement the member function property_hide() in extended class to receive this signal.
      *
      * <note><para>Argument @user_data is ignored in this function.</para></note>
      */
@@ -693,8 +661,7 @@ ibus_engine_class_init (IBusEngineClass *class)
      * @coordinates_len: The number of elements in the array.
      *
      * Emitted when a hand writing operation is cancelled.
-     * Implement the member function IBusEngineClass::cancel_hand_writing
-     * in extended class to receive this signal.
+     * Implement the member function cancel_hand_writing() in extended class to receive this signal.
      *
      * <note><para>Argument @user_data is ignored in this function.</para></note>
      */
@@ -716,8 +683,7 @@ ibus_engine_class_init (IBusEngineClass *class)
      * @n_strokes: The number of strokes to be removed. 0 means "remove all".
      *
      * Emitted when a hand writing operation is cancelled.
-     * Implement the member function IBusEngineClass::cancel_hand_writing
-     * in extended class to receive this signal.
+     * Implement the member function cancel_hand_writing() in extended class to receive this signal.
      *
      * <note><para>Argument @user_data is ignored in this function.</para></note>
      */
@@ -732,6 +698,8 @@ ibus_engine_class_init (IBusEngineClass *class)
             1,
             G_TYPE_UINT);
 
+    g_type_class_add_private (class, sizeof (IBusEnginePrivate));
+
     /**
      * IBusEngine::set-surrounding-text:
      * @engine: An IBusEngine.
@@ -740,10 +708,9 @@ ibus_engine_class_init (IBusEngineClass *class)
      * @anchor_pos: The anchor position on selection area.
      *
      * Emitted when a surrounding text is set.
-     * Implement the member function IBusEngineClass::set_surrounding_text
-     * in extended class to receive this signal.
-     * If anchor_pos equals to cursor_pos, it means "there are no selection"
-     * or "does not support selection retrival".
+     * Implement the member function set_surrounding_text() in extended class to receive this signal.
+     * If anchor_pos equals to cursor_pos, it means "there are no selection" or "does not support
+     * selection retrival".
      *
      * <note><para>Argument @user_data is ignored in this function.</para></note>
      */
@@ -759,40 +726,6 @@ ibus_engine_class_init (IBusEngineClass *class)
             G_TYPE_OBJECT,
             G_TYPE_UINT,
             G_TYPE_UINT);
-
-    /**
-     * IBusEngine::set-content-type:
-     * @engine: An #IBusEngine.
-     * @purpose: Primary purpose of the input context, as an #IBusInputPurpose.
-     * @hints: Hints that augment @purpose, as an #IBusInputHints.
-     *
-     * Emitted when the client application content-type (primary
-     * purpose and hints) is set.  The engine could change the
-     * behavior according to the content-type.  Implement the member
-     * function IBusEngineClass::set_content_type
-     * in extended class to receive this signal.
-     *
-     * For example, if the client application wants to restrict input
-     * to numbers, this signal will be emitted with @purpose set to
-     * #IBUS_INPUT_PURPOSE_NUMBER, so the engine can switch the input
-     * mode to latin.
-     *
-     * <note><para>Argument @user_data is ignored in this
-     * function.</para></note>
-     */
-    engine_signals[SET_CONTENT_TYPE] =
-        g_signal_new (I_("set-content-type"),
-            G_TYPE_FROM_CLASS (gobject_class),
-            G_SIGNAL_RUN_LAST,
-            G_STRUCT_OFFSET (IBusEngineClass, set_content_type),
-            NULL, NULL,
-            _ibus_marshal_VOID__UINT_UINT,
-            G_TYPE_NONE,
-            2,
-            G_TYPE_UINT,
-            G_TYPE_UINT);
-
-    g_type_class_add_private (class, sizeof (IBusEnginePrivate));
 
     text_empty = ibus_text_new_from_static_string ("");
     g_object_ref_sink (text_empty);
@@ -1071,43 +1004,15 @@ ibus_engine_service_set_property (IBusService        *service,
                                   GVariant           *value,
                                   GError            **error)
 {
-    IBusEngine *engine = IBUS_ENGINE (service);
-
-    if (g_strcmp0 (interface_name, IBUS_INTERFACE_ENGINE) != 0) {
-        return IBUS_SERVICE_CLASS (ibus_engine_parent_class)->
-            service_set_property (service,
-                                  connection,
-                                  sender,
-                                  object_path,
-                                  interface_name,
-                                  property_name,
-                                  value,
-                                  error);
-    }
-
-    if (g_strcmp0 (property_name, "ContentType") == 0) {
-        guint purpose = 0;
-        guint hints = 0;
-
-        g_variant_get (value, "(uu)", &purpose, &hints);
-        if (purpose != engine->priv->content_purpose ||
-            hints != engine->priv->content_hints) {
-            engine->priv->content_purpose = purpose;
-            engine->priv->content_hints = hints;
-
-            g_signal_emit (engine,
-                           engine_signals[SET_CONTENT_TYPE],
-                           0,
-                           purpose,
-                           hints);
-
-            ibus_engine_dbus_property_changed (engine, "ContentType", value);
-        }
-
-        return TRUE;
-    }
-
-    g_return_val_if_reached (FALSE);
+    return IBUS_SERVICE_CLASS (ibus_engine_parent_class)->
+                service_set_property (service,
+                                      connection,
+                                      sender,
+                                      object_path,
+                                      interface_name,
+                                      property_name,
+                                      value,
+                                      error);
 }
 
 static gboolean
@@ -1256,14 +1161,6 @@ ibus_engine_cancel_hand_writing (IBusEngine         *engine,
 }
 
 static void
-ibus_engine_set_content_type (IBusEngine *engine,
-                              guint       purpose,
-                              guint       hints)
-{
-    // g_debug ("set-content-type (%u %u)", purpose, hints);
-}
-
-static void
 ibus_engine_emit_signal (IBusEngine  *engine,
                          const gchar *signal_name,
                          GVariant    *parameters)
@@ -1274,52 +1171,6 @@ ibus_engine_emit_signal (IBusEngine  *engine,
                               signal_name,
                               parameters,
                               NULL);
-}
-
-static void
-ibus_engine_dbus_property_changed (IBusEngine  *engine,
-                                   const gchar *property_name,
-                                   GVariant    *value)
-{
-    const gchar *object_path;
-    GDBusConnection *connection;
-    GDBusMessage *message;
-    GVariantBuilder *builder;
-    gboolean retval;
-    GError *error;
-
-    /* we cannot use ibus_service_emit_signal() here, since we need to
-       set sender of the signal so that GDBusProxy can properly track
-       the property change. */
-    object_path = ibus_service_get_object_path ((IBusService *)engine);
-    message = g_dbus_message_new_signal (object_path,
-                                         "org.freedesktop.DBus.Properties",
-                                         "PropertiesChanged");
-
-    g_dbus_message_set_sender (message, "org.freedesktop.IBus");
-
-    builder = g_variant_builder_new (G_VARIANT_TYPE_ARRAY);
-    g_variant_builder_add (builder, "{sv}", property_name, value);
-    g_dbus_message_set_body (message,
-                             g_variant_new ("(sa{sv}as)",
-                                            IBUS_INTERFACE_ENGINE,
-                                            builder,
-                                            NULL));
-    g_variant_builder_unref (builder);
-
-    error = NULL;
-    connection = ibus_service_get_connection ((IBusService *)engine);
-    retval = g_dbus_connection_send_message (connection,
-                                             message,
-                                             G_DBUS_SEND_MESSAGE_FLAGS_NONE,
-                                             NULL,
-                                             &error);
-    if (!retval) {
-        g_warning ("Failed to emit PropertiesChanged signal: %s",
-                   error->message);
-        g_error_free (error);
-    }
-    g_object_unref (message);
 }
 
 IBusEngine *
@@ -1441,17 +1292,12 @@ ibus_engine_update_lookup_table_fast (IBusEngine        *engine,
                                       IBusLookupTable   *table,
                                       gboolean           visible)
 {
-    /* Note: gnome shell needs the previous page and next page
-       to correctly show the page up/down arrows,
-       send three pages instead of one page. */
-
     g_return_if_fail (IBUS_IS_ENGINE (engine));
     g_return_if_fail (IBUS_IS_LOOKUP_TABLE (table));
 
     IBusLookupTable *new_table;
     IBusText *text;
     gint page_begin;
-    gint cursor_pos;
     gint i;
 
     if (table->candidates->len < table->page_size << 2) {
@@ -1460,31 +1306,19 @@ ibus_engine_update_lookup_table_fast (IBusEngine        *engine,
     }
 
     page_begin = (table->cursor_pos / table->page_size) * table->page_size;
-    cursor_pos = ibus_lookup_table_get_cursor_in_page (table);
 
-    if (table->cursor_pos >= table->page_size) {
-        /* has previous page, adjust the value. */
-        page_begin -= table->page_size;
-        cursor_pos += table->page_size;
-    }
+    new_table = ibus_lookup_table_new (table->page_size, 0, table->cursor_visible, table->round);
 
-    new_table = ibus_lookup_table_new
-        (table->page_size, 0, table->cursor_visible, table->round);
-
-    /* '3' means the previous page, current page and next page. */
-    for (i = page_begin; i < page_begin + 3 * table->page_size &&
-             i < table->candidates->len; i++) {
-        ibus_lookup_table_append_candidate
-            (new_table, ibus_lookup_table_get_candidate (table, i));
+    for (i = page_begin; i < page_begin + table->page_size && i < table->candidates->len; i++) {
+        ibus_lookup_table_append_candidate (new_table, ibus_lookup_table_get_candidate (table, i));
     }
 
     for (i = 0; (text = ibus_lookup_table_get_label (table, i)) != NULL; i++) {
         ibus_lookup_table_append_label (new_table, text);
     }
 
-    ibus_lookup_table_set_cursor_pos (new_table, cursor_pos);
-    ibus_lookup_table_set_orientation
-        (new_table, ibus_lookup_table_get_orientation (table));
+    ibus_lookup_table_set_cursor_pos (new_table, ibus_lookup_table_get_cursor_in_page (table));
+    ibus_lookup_table_set_orientation (new_table, ibus_lookup_table_get_orientation (table));
 
     ibus_engine_update_lookup_table (engine, new_table, visible);
 
@@ -1587,17 +1421,6 @@ ibus_engine_get_surrounding_text (IBusEngine   *engine,
                              NULL);
 
     // g_debug ("get-surrounding-text ('%s', %d, %d)", (*text)->text, *cursor_pos, *anchor_pos);
-}
-
-void
-ibus_engine_get_content_type (IBusEngine *engine,
-                              guint      *purpose,
-                              guint      *hints)
-{
-    g_return_if_fail (IBUS_IS_ENGINE (engine));
-
-    *purpose = engine->priv->content_purpose;
-    *hints = engine->priv->content_hints;
 }
 
 void

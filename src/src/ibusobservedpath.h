@@ -1,31 +1,28 @@
 /* -*- mode: C; c-basic-offset: 4; indent-tabs-mode: nil; -*- */
 /* vim:set et sts=4: */
 /* ibus - The Input IBus
- * Copyright (C) 2008-2013 Peng Huang <shawn.p.huang@gmail.com>
- * Copyright (C) 2008-2013 Red Hat, Inc.
+ * Copyright (C) 2008-2010 Peng Huang <shawn.p.huang@gmail.com>
+ * Copyright (C) 2008-2010 Red Hat, Inc.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
- * version 2.1 of the License, or (at your option) any later version.
+ * version 2 of the License, or (at your option) any later version.
  *
  * This library is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.	 See the GNU
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301
- * USA
+ * License along with this library; if not, write to the
+ * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
+ * Boston, MA 02111-1307, USA.
  */
 
 #if !defined (__IBUS_H_INSIDE__) && !defined (IBUS_COMPILATION)
 #error "Only <ibus.h> can be included directly"
 #endif
-
-#ifndef __IBUS_OBSERVED_PATH_H_
-#define __IBUS_OBSERVED_PATH_H_
 
 /**
  * SECTION: ibusobservedpath
@@ -35,6 +32,9 @@
  * IBusObservedPath provides methods for file path manipulation,
  * such as monitor modification, directory tree traversal.
  */
+
+#ifndef __IBUS_OBSERVED_PATH_H_
+#define __IBUS_OBSERVED_PATH_H_
 
 #include "ibusserializable.h"
 #include "ibusxml.h"
@@ -95,10 +95,9 @@ GType                ibus_observed_path_get_type            (void);
  * ibus_observed_path_new_from_xml_node:
  * @node: An XML node that contain path.
  * @fill_stat: Auto-fill the path status.
+ * @returns: A newly allocated IBusObservedPath.
  *
- * Creates an new #IBusObservedPath from an XML node.
- *
- * Returns: A newly allocated #IBusObservedPath.
+ * New an IBusObservedPath from an XML node.
  */
 IBusObservedPath    *ibus_observed_path_new_from_xml_node   (XMLNode            *node,
                                                              gboolean            fill_stat);
@@ -107,10 +106,9 @@ IBusObservedPath    *ibus_observed_path_new_from_xml_node   (XMLNode            
  * ibus_observed_path_new:
  * @path: The path string.
  * @fill_stat: Auto-fill the path status.
+ * @returns: A newly allocated IBusObservedPath.
  *
- * Creates a new #IBusObservedPath from an XML node.
- *
- * Returns: A newly allocated #IBusObservedPath.
+ * New an IBusObservedPath from an XML node.
  */
 IBusObservedPath    *ibus_observed_path_new                 (const gchar        *path,
                                                              gboolean            fill_stat);
@@ -119,13 +117,10 @@ IBusObservedPath    *ibus_observed_path_new                 (const gchar        
  * ibus_observed_path_traverse:
  * @path: An IBusObservedPath.
  * @dir_only: Only looks for subdirs, not files
+ * @returns: (element-type IBusObservedPath): A newly allocate GList which holds content in path; NULL if @path is not directory.
  *
- * Recursively traverse the path and put the files and subdirectory in to
- * a newly allocated
+ * Recursively traverse the path and put the files and subdirectory in to a newly allocated
  * GLists, if the @path is a directory. Otherwise returns NULL.
- *
- * Returns: (transfer full) (element-type IBusObservedPath): A newly allocate
- * GList which holds content in path; NULL if @path is not directory.
  */
 GList               *ibus_observed_path_traverse            (IBusObservedPath   *path,
                                                              gboolean            dir_only);
@@ -133,11 +128,10 @@ GList               *ibus_observed_path_traverse            (IBusObservedPath   
 /**
  * ibus_observed_path_check_modification:
  * @path: An IBusObservedPath.
+ * @returns: TRUE if mtime is changed; FALSE otherwise.
  *
- * Checks whether the path is modified by comparing the mtime in object and
- * mtime in file system.
- *
- * Returns: %TRUE if imtime is changed, otherwise %FALSE.
+ * Checks whether the path is modified by comparing the mtime in object and mtime in file system.
+ * Returns TRUE if imtime is changed, otherwise FALSE.
  */
 gboolean             ibus_observed_path_check_modification  (IBusObservedPath   *path);
 

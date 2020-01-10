@@ -2,22 +2,22 @@
  *
  * ibus - The Input Bus
  *
- * Copyright(c) 2011-2014 Peng Huang <shawn.p.huang@gmail.com>
+ * Copyright(c) 2011 Peng Huang <shawn.p.huang@gmail.com>
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
- * version 2.1 of the License, or (at your option) any later version.
+ * version 2 of the License, or(at your option) any later version.
  *
  * This library is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Lesser General Public License for more details.
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301
- * USA
+ * License along with this program; if not, write to the
+ * Free Software Foundation, Inc., 59 Temple Place, Suite 330,
+ * Boston, MA  02111-1307  USA
  */
 
 class IconWidget: Gtk.Image {
@@ -46,7 +46,15 @@ class IconWidget: Gtk.Image {
                 var theme = Gtk.IconTheme.get_default();
                 pixbuf = theme.load_icon("ibus-engine", fixed_width, 0);
             } catch (GLib.Error e) {
-                set_from_icon_name("image-missing", size);
+                /* "gtk-missing-image.png" is the symlink of
+                 * "image-missing.png" and included in
+                 * gnome-icon-theme-legacy package in fedora.
+                 * gtk_image_set_from_stock() can fallback the stock name
+                 * to the real name instead of gtk_image_set_from_icon_name()
+                 * or gtk_icon_theme_load_icon() and
+                 * could remove gnome-icon-theme-legacy.
+                 */
+                set_from_stock(Gtk.Stock.MISSING_IMAGE, size);
                 return;
             }
         }

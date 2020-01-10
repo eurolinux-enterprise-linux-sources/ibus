@@ -3,36 +3,27 @@
  * ibus - The Input Bus
  *
  * Copyright(c) 2013 Peng Huang <shawn.p.huang@gmail.com>
- * Copyright(c) 2015-2017 Takao Fujiwara <takao.fujiwara1@gmail.com>
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
- * version 2.1 of the License, or (at your option) any later version.
+ * version 2 of the License, or(at your option) any later version.
  *
  * This library is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Lesser General Public License for more details.
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301
- * USA
+ * License along with this program; if not, write to the
+ * Free Software Foundation, Inc., 59 Temple Place, Suite 330,
+ * Boston, MA  02111-1307  USA
  */
-
-private const string[] IBUS_SCHEMAS = {
-    "org.freedesktop.ibus.general",
-    "org.freedesktop.ibus.general.hotkey",
-    "org.freedesktop.ibus.panel",
-};
 
 bool name_only = false;
 /* system() exists as a public API. */
 bool is_system = false;
 string cache_file = null;
-string emoji_font = null;
-string annotation_lang = null;
 
 class EngineList {
     public IBus.EngineDesc[] data = {};
@@ -279,76 +270,6 @@ int write_cache (string[] argv) {
             Posix.EXIT_SUCCESS : Posix.EXIT_FAILURE;
 }
 
-int print_address(string[] argv) {
-    string address = IBus.get_address();
-    print("%s\n", address != null ? address : "(null)");
-    return Posix.EXIT_SUCCESS;
-}
-
-int read_config(string[] argv) {
-    var output = new GLib.StringBuilder();
-
-    foreach (string schema in IBUS_SCHEMAS) {
-        GLib.Settings settings = new GLib.Settings(schema);
-
-        output.append_printf("SCHEMA: %s\n", schema);
-
-        foreach (string key in settings.list_keys()) {
-            GLib.Variant variant = settings.get_value(key);
-            output.append_printf("  %s: %s\n", key, variant.print(true));
-        }
-    }
-    print("%s", output.str);
-
-    return Posix.EXIT_SUCCESS;
-}
-
-int reset_config(string[] argv) {
-    print("%s\n", _("Resetting…"));
-
-    foreach (string schema in IBUS_SCHEMAS) {
-        GLib.Settings settings = new GLib.Settings(schema);
-
-        print("SCHEMA: %s\n", schema);
-
-        foreach (string key in settings.list_keys()) {
-            print("  %s\n", key);
-            settings.reset(key);
-        }
-    }
-
-    GLib.Settings.sync();
-    print("%s\n", _("Done"));
-
-    return Posix.EXIT_SUCCESS;
-}
-
-#if EMOJI_DICT
-int emoji_dialog(string[] argv) {
-    string cmd = Config.LIBEXECDIR + "/ibus-ui-emojier";
-
-    var file = File.new_for_path(cmd);
-    if (!file.query_exists())
-        cmd = "../ui/gtk3/ibus-ui-emojier";
-
-    argv[0] = cmd;
-
-    string[] env = Environ.get();
-
-    try {
-        // Non-blocking
-        Process.spawn_async(null, argv, env,
-                            SpawnFlags.SEARCH_PATH,
-                            null, null);
-    } catch (SpawnError e) {
-        stderr.printf("%s\n", e.message);
-        return Posix.EXIT_FAILURE;
-    }
-
-    return Posix.EXIT_SUCCESS;
-}
-#endif
-
 int print_help(string[] argv) {
     print_usage(stdout);
     return Posix.EXIT_SUCCESS;
@@ -357,27 +278,20 @@ int print_help(string[] argv) {
 delegate int EntryFunc(string[] argv);
 
 struct CommandEntry {
-    unowned string name;
-    unowned string description;
-    unowned EntryFunc entry;
+    string name;
+    EntryFunc entry;
 }
 
 static const CommandEntry commands[]  = {
-    { "engine", N_("Set or get engine"), get_set_engine },
-    { "exit", N_("Exit ibus-daemon"), exit_daemon },
-    { "list-engine", N_("Show available engines"), list_engine },
-    { "watch", N_("(Not implemented)"), message_watch },
-    { "restart", N_("Restart ibus-daemon"), restart_daemon },
-    { "version", N_("Show version"), print_version },
-    { "read-cache", N_("Show the content of registry cache"), read_cache },
-    { "write-cache", N_("Create registry cache"), write_cache },
-    { "address", N_("Print the D-Bus address of ibus-daemon"), print_address },
-    { "read-config", N_("Show the configuration values"), read_config },
-    { "reset-config", N_("Reset the configuration values"), reset_config },
-#if EMOJI_DICT
-    { "emoji", N_("Save emoji on dialog to clipboard "), emoji_dialog },
-#endif
-    { "help", N_("Show this information"), print_help }
+    { "engine", get_set_engine },
+    { "exit", exit_daemon },
+    { "list-engine", list_engine },
+    { "watch", message_watch },
+    { "restart", restart_daemon },
+    { "version", print_version },
+    { "read-cache", read_cache },
+    { "write-cache", write_cache },
+    { "help", print_help }
 };
 
 static string program_name;
@@ -386,17 +300,14 @@ void print_usage(FileStream stream) {
     stream.printf(_("Usage: %s COMMAND [OPTION...]\n\n"), program_name);
     stream.printf(_("Commands:\n"));
     for (int i = 0; i < commands.length; i++) {
-        stream.printf("  %-12s    %s\n",
-                      commands[i].name,
-                      GLib.dgettext(null, commands[i].description));
+        stream.printf("  %s\n", commands[i].name);
     }
 }
 
 public int main(string[] argv) {
     GLib.Intl.setlocale(GLib.LocaleCategory.ALL, "");
-    GLib.Intl.bindtextdomain(Config.GETTEXT_PACKAGE, Config.GLIB_LOCALE_DIR);
-    GLib.Intl.bind_textdomain_codeset(Config.GETTEXT_PACKAGE, "UTF-8");
-    GLib.Intl.textdomain(Config.GETTEXT_PACKAGE);
+    GLib.Intl.bindtextdomain (Config.GETTEXT_PACKAGE, Config.GLIB_LOCALE_DIR);
+    GLib.Intl.bind_textdomain_codeset (Config.GETTEXT_PACKAGE, "UTF-8");
 
     IBus.init();
 

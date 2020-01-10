@@ -8,7 +8,7 @@
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
- * version 2.1 of the License, or (at your option) any later version.
+ * version 2 of the License, or (at your option) any later version.
  *
  * This library is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -16,9 +16,9 @@
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301
- * USA
+ * License along with this library; if not, write to the
+ * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
+ * Boston, MA 02111-1307, USA.
  */
 
 #include <string.h>
@@ -205,7 +205,6 @@ _watch_func (DConfClient         *client,
         if (variant == NULL) {
             /* Use a empty tuple for a unset value */
             variant = g_variant_new_tuple (NULL, 0);
-            g_variant_ref_sink (variant);
         }
 
         gname = strrchr (gkeys[i], '/');
@@ -400,7 +399,7 @@ ibus_config_dconf_get_values (IBusConfigService *config,
     gchar *dir, *gdir;
     gint len;
     gchar **entries, **p;
-    GVariantBuilder builder;
+    GVariantBuilder *builder;
     gboolean preserve_name;
 
     dir = g_strdup_printf (DCONF_PREFIX"/%s/", section);
@@ -410,7 +409,7 @@ ibus_config_dconf_get_values (IBusConfigService *config,
     preserve_name = _has_prefixes (gdir, dconf->preserve_name_prefixes);
 
     entries = dconf_client_list (client, gdir, &len);
-    g_variant_builder_init (&builder, G_VARIANT_TYPE ("a{sv}"));
+    builder = g_variant_builder_new (G_VARIANT_TYPE ("a{sv}"));
     for (p = entries; *p != NULL; p++) {
         gchar *gkey = g_strconcat (gdir, *p, NULL);
         GVariant *value = dconf_client_read (client, gkey);
@@ -420,7 +419,7 @@ ibus_config_dconf_get_values (IBusConfigService *config,
             if (!preserve_name) {
                 name = _from_gsettings_name (*p);
             }
-            g_variant_builder_add (&builder, "{sv}", name, value);
+            g_variant_builder_add (builder, "{sv}", name, value);
             if (name != *p) {
                 g_free (name);
             }
@@ -430,7 +429,7 @@ ibus_config_dconf_get_values (IBusConfigService *config,
     g_strfreev (entries);
     g_free (gdir);
 
-    return g_variant_builder_end (&builder);
+    return g_variant_builder_end (builder);
 }
 
 static gboolean

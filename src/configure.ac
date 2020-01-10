@@ -2,24 +2,23 @@
 #
 # ibus - The Input Bus
 #
-# Copyright (c) 2007-2016 Peng Huang <shawn.p.huang@gmail.com>
-# Copyright (c) 2015-2017 Takao Fujiwara <takao.fujiwara1@gmail.com>
-# Copyright (c) 2007-2017 Red Hat, Inc.
+# Copyright (c) 2007-2013 Peng Huang <shawn.p.huang@gmail.com>
+# Copyright (c) 2007-2013 Red Hat, Inc.
 #
 # This library is free software; you can redistribute it and/or
 # modify it under the terms of the GNU Lesser General Public
 # License as published by the Free Software Foundation; either
-# version 2.1 of the License, or (at your option) any later version.
+# version 2 of the License, or (at your option) any later version.
 #
 # This library is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-# Lesser General Public License for more details.
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Lesser General Public License for more details.
 #
 # You should have received a copy of the GNU Lesser General Public
-# License along with this library; if not, write to the Free Software
-# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301
-# USA
+# License along with this program; if not, write to the
+# Free Software Foundation, Inc., 59 Temple Place, Suite 330,
+# Boston, MA  02111-1307  USA
 
 
 # If ibus_released is 0, append datestamp to the version number.
@@ -27,7 +26,7 @@ m4_define([ibus_released], [1])
 
 m4_define([ibus_major_version], [1])
 m4_define([ibus_minor_version], [5])
-m4_define([ibus_micro_version], [17])
+m4_define([ibus_micro_version], [3])
 m4_define([ibus_abi_current], [5])
 m4_define([ibus_abi_revision],
           [m4_eval(100 * ibus_minor_version + ibus_micro_version)])
@@ -40,7 +39,7 @@ m4_define([ibus_api_version], [ibus_major_version.0])
 
 AC_PREFEQ([2.62])
 AC_INIT([ibus], [ibus_version],
-        [https://github.com/ibus/ibus/issues],
+        [http://code.google.com/p/ibus/issues/entry],
         [ibus])
 
 AC_CONFIG_HEADERS([config.h])
@@ -52,12 +51,12 @@ m4_define([ibus_binary_version],
           [ibus_major_version.ibus_abi_current_minus_age.ibus_abi_age.ibus_abi_revision])
 
 # Required versions of other packages.
-m4_define([glib_required_version], [2.36.0])
+m4_define([glib_required_version], [2.32.0])
 
 # VALA_TARGET_GLIB_VERSION is used by valac --ccode --target-glib .
 # VALA_TARGET_GLIB_VERSION and glib_required_version will be different
 # in the future.
-VALA_TARGET_GLIB_VERSION=2.36
+VALA_TARGET_GLIB_VERSION=2.32
 AC_SUBST(VALA_TARGET_GLIB_VERSION)
 
 # Init automake.
@@ -126,7 +125,7 @@ AC_SUBST(DATE_DISPLAY)
 AC_PROG_CC
 AM_PROG_CC_C_O
 AC_PROG_CC_STDC
-AM_PROG_VALAC([0.20])
+AM_PROG_VALAC([0.14])
 AC_PROG_INSTALL
 AC_PROG_MAKE_SET
 
@@ -137,7 +136,7 @@ AM_GLIB_GNU_GETTEXT
 AM_DISABLE_STATIC
 AC_ISC_POSIX
 AC_HEADER_STDC
-LT_INIT
+AM_PROG_LIBTOOL
 IT_PROG_INTLTOOL([0.35.0])
 
 # Check functions.
@@ -153,7 +152,7 @@ PKG_CHECK_MODULES(GOBJECT2, [
     gobject-2.0 >= glib_required_version
 ])
 PKG_CHECK_MODULES(GIO2, [
-    gio-2.0 gio-unix-2.0 >= glib_required_version
+    gio-2.0 >= glib_required_version
 ])
 PKG_CHECK_MODULES(GTHREAD2, [
     gthread-2.0 >= glib_required_version
@@ -198,48 +197,37 @@ AC_ARG_ENABLE(xim,
 )
 AM_CONDITIONAL([ENABLE_XIM], [test x"$enable_xim" = x"yes"])
 
-if test x"$enable_xim" = x"yes"; then
-    AC_SUBST([XIM_CLI_ARG], [--xim])
-fi
-
-# --enable-wayland option.
-AC_ARG_ENABLE(wayland,
-    AS_HELP_STRING([--enable-wayland],
-                   [Build wayland support]),
-    [enable_wayland=$enableval],
-    [enable_wayland=no]
-)
-AM_CONDITIONAL([ENABLE_WAYLAND], [test x"$enable_wayland" = x"yes"])
-
-# --enable-appindicator option.
-AC_ARG_ENABLE(appindicator,
-    AS_HELP_STRING([--enable-appindicator],
-                   [Build appindicator support]),
-    [enable_appindicator=$enableval],
-    [enable_appindicator=yes]
-)
-AM_CONDITIONAL([ENABLE_APPINDICATOR], [test x"$enable_appindicator" = x"yes"])
-
-if test x"$enable_gtk2" = x"yes"; then
+if test x"$enable_gtk2" = x"yes" -o x"$enable_xim" = x"yes" ; then
     # check for gtk2
     PKG_CHECK_MODULES(GTK2, [
         gtk+-2.0
     ])
+fi
 
+if test x"$enable_gtk2" = x"yes"; then
+    # check for gdk2
     gtk2_binary_version=`$PKG_CONFIG --variable=gtk_binary_version gtk+-2.0`
     GTK2_IM_MODULEDIR="$libdir"/gtk-2.0/$gtk2_binary_version/immodules
+
+    PKG_CHECK_MODULES(GDK2, [
+        gdk-2.0
+    ])
 else
     enable_gtk2="no (disabled, use --enable-gtk2 to enable)"
 fi
 
 if test x"$enable_gtk3" = x"yes"; then
-    # check for gtk3
+    # check for gtk3, gdk3
     PKG_CHECK_MODULES(GTK3, [
         gtk+-3.0
     ])
 
     gtk3_binary_version=`$PKG_CONFIG --variable=gtk_binary_version gtk+-3.0`
     GTK3_IM_MODULEDIR="$libdir"/gtk-3.0/$gtk3_binary_version/immodules
+
+    PKG_CHECK_MODULES(GDK3, [
+        gdk-3.0
+    ])
 else
     enable_gtk3="no (disabled, use --enable-gtk3 to enable)"
 fi
@@ -250,56 +238,9 @@ if test x"$enable_xim" = x"yes"; then
         x11
     ])
     AC_CHECK_HEADERS([X11/XKBlib.h])
-
-    # if we don't have gtk3 yet, check for gtk2
-    if test x"$enable_gtk3" != x"yes"; then
-        # check for gtk2
-        PKG_CHECK_MODULES(GTK2, [
-            gtk+-2.0
-        ])
-    fi
 else
     enable_xim="no (disabled, use --enable-xim to enable)"
 fi
-
-if $PKG_CONFIG --exists x11; then
-    X11_PREFIX="`$PKG_CONFIG --variable=prefix x11`"
-elif test x"$prefix" != xNONE; then
-    X11_PREFIX="$prefix"
-else
-    X11_PREFIX="$ac_default_prefix"
-fi
-AC_SUBST(X11_PREFIX)
-
-if test x"$enable_wayland" = x"yes"; then
-    # Check for wayland
-    PKG_CHECK_MODULES(WAYLAND, [
-        wayland-client >= 1.2.0
-        xkbcommon
-    ])
-else
-    enable_wayland="no (disabled, use --enable-wayland to enable)"
-fi
-
-enable_appindicator_engine_icon="no"
-if test x"$enable_appindicator" = x"yes"; then
-    enable_appindicator="yes (enabled, use --disable-appindicator to disable)"
-
-    # Need qt5-qtbase-devel package
-    # There is no way to check the version of KStatusNotifierItem and
-    # check the version of qtbase here.
-    AC_MSG_CHECKING([for KDE5 appindicator engine icon])
-    PKG_CHECK_EXISTS([Qt5Gui >= 5.4],
-        enable_appindicator_engine_icon="yes"
-    )
-    AC_MSG_RESULT([$enable_appindicator_engine_icon])
-
-fi
-if test x"$enable_appindicator_engine_icon" != x"yes" ; then
-    enable_appindicator_engine_icon="no (disabled, need qtbase-devel 5.4 or later)"
-fi
-AM_CONDITIONAL([ENABLE_APPINDICATOR_ENGINE_ICON],
-               [test x"$enable_appindicator_engine_icon" = x"yes"])
 
 # GObject introspection
 GOBJECT_INTROSPECTION_CHECK([0.6.8])
@@ -409,19 +350,7 @@ AM_CONDITIONAL([ENABLE_PYTHON_LIBRARY], [test x"$enable_python_library" = x"yes"
 AM_CONDITIONAL([ENABLE_SETUP], [test x"$enable_setup" = x"yes"])
 AM_CONDITIONAL([ENABLE_DAEMON], [true])
 
-# Define python version
-AC_ARG_WITH(python,
-    AS_HELP_STRING([--with-python[=PATH]],
-        [Select python2 or python3]),
-    [PYTHON=$with_python], []
-)
-
 AM_PATH_PYTHON([2.5])
-AC_PATH_PROG(PYTHON2, python2)
-
-if test x"$PYTHON2" = x""; then
-    PYTHON2=$PYTHON
-fi
 
 PYGOBJECT_REQUIRED=3.0.0
 
@@ -429,13 +358,10 @@ PKG_CHECK_EXISTS([pygobject-3.0 >= $PYGOBJECT_REQUIRED],
                  [enable_pygobject=yes], [enable_pygobject=no])
 
 if test "x$enable_pygobject" = "xyes"; then
-    PKG_CHECK_MODULES(PYTHON, [pygobject-3.0 >= $PYGOBJECT_REQUIRED])
+	PKG_CHECK_MODULES(PYTHON, [pygobject-3.0 >= $PYGOBJECT_REQUIRED])
 
-    pyoverridesdir=`$PYTHON -c "import gi; print(gi._overridesdir)"`
-    AC_SUBST(pyoverridesdir)
-
-    py2overridesdir=`$PYTHON2 -c "import gi; print(gi._overridesdir)"`
-    AC_SUBST(py2overridesdir)
+	pyoverridesdir=`$PYTHON -c "import gi; print(gi._overridesdir)"`
+	AC_SUBST(pyoverridesdir)
 fi
 
 AM_CONDITIONAL(ENABLE_PYGOBJECT, test x"$enable_pygobject" = "xyes")
@@ -457,13 +383,6 @@ if test x"$enable_python_library" = x"yes"; then
     AC_SUBST(PYTHON_CFLAGS)
     AC_SUBST(PYTHON_INCLUDES)
     AC_SUBST(PYTHON_LIBS)
-
-    PYTHON2_PREFIX=`$PYTHON2 -c "import sys; sys.stdout.write(sys.prefix)"`
-    PYTHON2_VERSION=`$PYTHON2 -c "import sys; sys.stdout.write(sys.version[[:3]])"`
-    PYTHON2_LIBDIR="$PYTHON2_PREFIX/lib/python$PYTHON2_VERSION"
-    python2dir="$PYTHON2_LIBDIR/site-packages"
-    pkgpython2dir="$python2dir/ibus"
-    AC_SUBST(pkgpython2dir)
 else
     enable_python_library="no (disabled, use --enable-python-library to enable)"
 fi
@@ -525,7 +444,7 @@ AC_ARG_WITH(no-snooper-apps,
     AS_HELP_STRING([--with-no-snooper-apps[=regex1,regex2]],
         [Does not enable keyboard snooper in those applications (like: .*chrome.*,firefox.*)]),
     NO_SNOOPER_APPS=$with_no_snooper_apps,
-    NO_SNOOPER_APPS=[firefox.*,.*chrome.*,.*chromium.*,terminator]
+    NO_SNOOPER_APPS=[.*chrome.*,.*chromium.*,firefox.*,Do.*]
 )
 AC_DEFINE_UNQUOTED(NO_SNOOPER_APPS, "$NO_SNOOPER_APPS",
     [Does not enbale keyboard snooper in those applications])
@@ -569,10 +488,6 @@ AC_ARG_ENABLE(ui,
 )
 AM_CONDITIONAL([ENABLE_UI], [test x"$enable_ui" = x"yes"])
 if test x"$enable_ui" = x"yes"; then
-    # Check for x11
-    PKG_CHECK_MODULES(X11, [
-        x11
-    ])
     enable_ui="yes (enabled, use --disable-ui to disable)"
 fi
 
@@ -603,64 +518,12 @@ if test x"$enable_libnotify" = x"yes"; then
     enable_libnotify="yes (enabled, use --disable-libnotify to disable)"
 fi
 
-# --disable-emoji-dict option.
-AC_ARG_ENABLE(emoji-dict,
-    AS_HELP_STRING([--disable-emoji-dict],
-                   [Do not build Emoji dict files]),
-    [enable_emoji_dict=$enableval],
-    [enable_emoji_dict=yes]
-)
-AM_CONDITIONAL([ENABLE_EMOJI_DICT], [test x"$enable_emoji_dict" = x"yes"])
-
-AC_ARG_WITH(unicode-emoji-dir,
-    AS_HELP_STRING([--with-unicode-emoji-dir[=DIR]],
-        [Set the directory of Unicode Emoji.
-         (default: "/usr/share/unicode/emoji")]),
-    UNICODE_EMOJI_DIR=$with_unicode_emoji_dir,
-    UNICODE_EMOJI_DIR="/usr/share/unicode/emoji"
-)
-AC_SUBST(UNICODE_EMOJI_DIR)
-
-AC_ARG_WITH(emoji-annotation-dir,
-    AS_HELP_STRING([--with-emoji-annotation-dir[=DIR]],
-        [Set the directory of CLDR annotation files.
-         (default: "/usr/share/unicode/cldr/common/annotations")]),
-    EMOJI_ANNOTATION_DIR=$with_emoji_annotation_dir,
-    EMOJI_ANNOTATION_DIR="/usr/share/unicode/cldr/common/annotations"
-)
-AC_SUBST(EMOJI_ANNOTATION_DIR)
-
-if test x"$enable_emoji_dict" = x"yes"; then
-    if test ! -f $UNICODE_EMOJI_DIR/emoji-test.txt ; then
-        AC_MSG_ERROR(Not found $UNICODE_EMOJI_DIR/emoji-test.txt. You can get \
-the emoji files from http://www.unicode.org/Public/emoji/4.0/)
-    else
-        # POSIX SHELL has no ${FOO:0:1}
-        head=`echo "$UNICODE_EMOJI_DIR" | cut -c1`;
-        if test $head != "/" ; then
-            UNICODE_EMOJI_DIR=`realpath "$UNICODE_EMOJI_DIR"`
-        fi
-    fi
-    if test ! -f $EMOJI_ANNOTATION_DIR/en.xml ; then
-        AC_MSG_ERROR(Not found $EMOJI_ANNOTATION_DIR/en.xml. You can get \
-https://github.com/fujiwarat/cldr-emoji-annotation)
-    else
-        head=`echo "$EMOJI_ANNOTATION_DIR" | cut -c1`;
-        if test $head != "/" ; then
-            EMOJI_ANNOTATION_DIR=`realpath "$EMOJI_ANNOTATION_DIR"`
-        fi
-    fi
-    enable_emoji_dict="yes (enabled, use --disable-emoji-dict to disable)"
-fi
-
 # Check iso-codes.
 PKG_CHECK_MODULES(ISOCODES, [
     iso-codes
 ])
-ISOCODES_PREFIX=`$PKG_CONFIG iso-codes --variable=prefix`
+ISOCODES_PREFIX=`pkg-config iso-codes --variable=prefix`
 AC_SUBST(ISOCODES_PREFIX)
-
-AC_SUBST([GDBUS_CODEGEN], [`$PKG_CONFIG --variable gdbus_codegen gio-2.0`])
 
 # OUTPUT files
 AC_CONFIG_FILES([ po/Makefile.in
@@ -671,17 +534,14 @@ client/Makefile
 client/gtk2/Makefile
 client/gtk3/Makefile
 client/x11/Makefile
-client/wayland/Makefile
 src/Makefile
 src/ibusversion.h
 src/tests/Makefile
 bus/Makefile
-portal/Makefile
 engine/Makefile
 util/Makefile
 util/IMdkit/Makefile
 data/Makefile
-data/annotations/Makefile
 data/icons/Makefile
 data/keymaps/Makefile
 data/dconf/Makefile
@@ -710,39 +570,31 @@ tools/Makefile
 AC_OUTPUT
 AC_MSG_RESULT([
 Build options:
-  Version                       $IBUS_VERSION
-  Install prefix                $prefix
-  Build shared libs             $enable_shared
-  Build static libs             $enable_static
-  CFLAGS                        $CFLAGS
-  PYTHON                        $PYTHON
-  PYTHON2                       $PYTHON2
-  Gtk2 immodule dir             $GTK2_IM_MODULEDIR
-  Gtk3 immodule dir             $GTK3_IM_MODULEDIR
-  Build gtk2 immodule           $enable_gtk2
-  Build gtk3 immodule           $enable_gtk3
-  Build XIM agent server        $enable_xim
-  Build wayland support         $enable_wayland
-  Build appindicator support    $enable_appindicator
-  Build appindicator engine icon $enable_appindicator_engine_icon
-  Build python library          $enable_python_library
-  Build gconf modules           $enable_gconf
-  Build memconf modules         $enable_memconf
-  Build dconf modules           $enable_dconf
-  Build introspection           $found_introspection
-  IBus-1.0.gir scannerflags     "$IBUS_GIR_SCANNERFLAGS"
-  Build vala binding            $enable_vala
-  Build document                $enable_gtk_doc
-  Build UI                      $enable_ui
-  Build engine                  $enable_engine
-  Enable key snooper            $enable_key_snooper
-  No snooper regexes            "$NO_SNOOPER_APPS"
-  Panel icon                    "$IBUS_ICON_KEYBOARD"
-  Enable surrounding-text       $enable_surrounding_text
-  Enable libnotify              $enable_libnotify
-  Enable Emoji dict             $enable_emoji_dict
-  Unicode Emoji directory       $UNICODE_EMOJI_DIR
-  CLDR annotation directory     $EMOJI_ANNOTATION_DIR
-  Run test cases                $enable_tests
+  Version                   $IBUS_VERSION
+  Install prefix            $prefix
+  Build shared libs         $enable_shared
+  Build static libs         $enable_static
+  CFLAGS                    $CFLAGS
+  Gtk2 immodule dir         $GTK2_IM_MODULEDIR
+  Gtk3 immodule dir         $GTK3_IM_MODULEDIR
+  Build gtk2 immodule       $enable_gtk2
+  Build gtk3 immodule       $enable_gtk3
+  Build XIM agent server    $enable_xim
+  Build python library      $enable_python_library
+  Build gconf modules       $enable_gconf
+  Build memconf modules     $enable_memconf
+  Build dconf modules       $enable_dconf
+  Build introspection       $found_introspection
+  IBus-1.0.gir scannerflags "$IBUS_GIR_SCANNERFLAGS"
+  Build vala binding        $enable_vala
+  Build document            $enable_gtk_doc
+  Build UI                  $enable_ui
+  Build engine              $enable_engine
+  Enable key snooper        $enable_key_snooper
+  No snooper regexes        "$NO_SNOOPER_APPS"
+  Panel icon                "$IBUS_ICON_KEYBOARD"
+  Enable surrounding-text   $enable_surrounding_text
+  Enable libnotify          $enable_libnotify
+  Run test cases            $enable_tests
 ])
 

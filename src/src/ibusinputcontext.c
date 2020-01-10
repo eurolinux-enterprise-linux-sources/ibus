@@ -1,23 +1,23 @@
 /* -*- mode: C; c-basic-offset: 4; indent-tabs-mode: nil; -*- */
 /* vim:set et sts=4: */
 /* ibus - The Input Bus
- * Copyright (C) 2008-2013 Peng Huang <shawn.p.huang@gmail.com>
- * Copyright (C) 2008-2013 Red Hat, Inc.
+ * Copyright (C) 2008-2010 Peng Huang <shawn.p.huang@gmail.com>
+ * Copyright (C) 2008-2010 Red Hat, Inc.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
- * version 2.1 of the License, or (at your option) any later version.
+ * version 2 of the License, or (at your option) any later version.
  *
  * This library is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.	 See the GNU
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301
- * USA
+ * License along with this library; if not, write to the
+ * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
+ * Boston, MA 02111-1307, USA.
  */
 #include "ibusinputcontext.h"
 #include <gio/gio.h>
@@ -133,9 +133,9 @@ ibus_input_context_class_init (IBusInputContextClass *class)
      *
      * Emitted when the text is going to be committed.
      *
-     * (Note: The text object is floating, and it will be released after the
-     *  signal. If signal handler wants to keep the object, the handler should
-     *  use g_object_ref_sink() to get the ownership of the object.)
+     * (Note: The text object is floating, and it will be released after the signal.
+     *  If singal handler want to keep the object, the handler should use g_object_ref_sink()
+     *  to get the ownership of the object.)
      */
     context_signals[COMMIT_TEXT] =
         g_signal_new (I_("commit-text"),
@@ -200,9 +200,9 @@ ibus_input_context_class_init (IBusInputContextClass *class)
      *
      * Emitted to update preedit text.
      *
-     * (Note: The text object is floating, and it will be released after the
-     *  signal. If signal handler wants to keep the object, the handler should
-     *  use g_object_ref_sink() to get the ownership of the object.)
+     * (Note: The text object is floating, and it will be released after the signal.
+     *  If singal handler want to keep the object, the handler should use g_object_ref_sink()
+     *  to get the ownership of the object.)
      */
     context_signals[UPDATE_PREEDIT_TEXT] =
         g_signal_new (I_("update-preedit-text"),
@@ -250,14 +250,12 @@ ibus_input_context_class_init (IBusInputContextClass *class)
     /**
      * IBusInputContext::update-auxiliary-text:
      * @context: An IBusInputContext.
-     * @text: An auxiliary text
-     * @visible: The visibility of @text
      *
      * Emitted to hide auxilary text.
      *
-     * (Note: The text object is floating, and it will be released after the
-     *  signal. If signal handler wants to keep the object, the handler should
-     *  use g_object_ref_sink() to get the ownership of the object.)
+     * (Note: The text object is floating, and it will be released after the signal.
+     *  If singal handler want to keep the object, the handler should use g_object_ref_sink()
+     *  to get the ownership of the object.)
      */
     context_signals[UPDATE_AUXILIARY_TEXT] =
         g_signal_new (I_("update-auxiliary-text"),
@@ -308,9 +306,9 @@ ibus_input_context_class_init (IBusInputContextClass *class)
      *
      * Emitted to update lookup table.
      *
-     * (Note: The table object is floating, and it will be released after the
-     *  signal. If signal handler wants to keep the object, the handler should
-     *  use g_object_ref_sink() to get the ownership of the object.)
+     * (Note: The table object is floating, and it will be released after the signal.
+     *  If singal handler want to keep the object, the handler should use g_object_ref_sink()
+     *  to get the ownership of the object.)
      */
     context_signals[UPDATE_LOOKUP_TABLE] =
         g_signal_new (I_("update-lookup-table"),
@@ -421,9 +419,9 @@ ibus_input_context_class_init (IBusInputContextClass *class)
      *
      * Emitted to register the properties in @props.
      *
-     * (Note: The props object is floating, and it will be released after the
-     *  signal. If signal handler wants to keep the object, the handler should
-     *  use g_object_ref_sink() to get the ownership of the object.)
+     * (Note: The props object is floating, and it will be released after the signal.
+     *  If singal handler want to keep the object, the handler should use g_object_ref_sink()
+     *  to get the ownership of the object.)
      */
     context_signals[REGISTER_PROPERTIES] =
         g_signal_new (I_("register-properties"),
@@ -443,9 +441,9 @@ ibus_input_context_class_init (IBusInputContextClass *class)
      *
      * Emitted to update the property @prop.
      *
-     * (Note: The prop object is floating, and it will be released after the
-     *  signal. If signal handler wants to keep the object, the handler should
-     *  use g_object_ref_sink() to get the ownership of the object.)
+     * (Note: The prop object is floating, and it will be released after the signal.
+     *  If singal handler want to keep the object, the handler should use g_object_ref_sink()
+     *  to get the ownership of the object.)
      */
     context_signals[UPDATE_PROPERTY] =
         g_signal_new (I_("update-property"),
@@ -684,20 +682,17 @@ ibus_input_context_new (const gchar     *path,
 {
     g_assert (path != NULL);
     g_assert (G_IS_DBUS_CONNECTION (connection));
-    const gchar *service_name = IBUS_SERVICE_IBUS;
 
     GInitable *initable;
 
-    GDBusProxyFlags flags = G_DBUS_PROXY_FLAGS_DO_NOT_AUTO_START;
-
-    if (g_object_get_data (G_OBJECT (connection), "ibus-portal-connection"))
-        service_name = IBUS_SERVICE_PORTAL;
+    GDBusProxyFlags flags = G_DBUS_PROXY_FLAGS_DO_NOT_AUTO_START |
+                            G_DBUS_PROXY_FLAGS_DO_NOT_LOAD_PROPERTIES;
 
     initable = g_initable_new (IBUS_TYPE_INPUT_CONTEXT,
                                cancellable,
                                error,
                                "g-connection",      connection,
-                               "g-name",            service_name,
+                               "g-name",            IBUS_SERVICE_IBUS,
                                "g-flags",           flags,
                                "g-interface-name",  IBUS_INTERFACE_INPUT_CONTEXT,
                                "g-object-path",     path,
@@ -718,12 +713,9 @@ ibus_input_context_new_async (const gchar         *path,
     g_assert (path != NULL);
     g_assert (G_IS_DBUS_CONNECTION (connection));
     g_assert (callback != NULL);
-    const gchar *service_name = IBUS_SERVICE_IBUS;
 
-    GDBusProxyFlags flags = G_DBUS_PROXY_FLAGS_DO_NOT_AUTO_START;
-
-    if (g_object_get_data (G_OBJECT (connection), "ibus-portal-connection"))
-        service_name = IBUS_SERVICE_PORTAL;
+    GDBusProxyFlags flags = G_DBUS_PROXY_FLAGS_DO_NOT_AUTO_START |
+                            G_DBUS_PROXY_FLAGS_DO_NOT_LOAD_PROPERTIES;
 
     g_async_initable_new_async (IBUS_TYPE_INPUT_CONTEXT,
                                 G_PRIORITY_DEFAULT,
@@ -731,7 +723,7 @@ ibus_input_context_new_async (const gchar         *path,
                                 callback,
                                 user_data,
                                 "g-connection",      connection,
-                                "g-name",            service_name,
+                                "g-name",            IBUS_SERVICE_IBUS,
                                 "g-flags",           flags,
                                 "g-interface-name",  IBUS_INTERFACE_INPUT_CONTEXT,
                                 "g-object-path",     path,
@@ -952,26 +944,6 @@ ibus_input_context_set_cursor_location (IBusInputContext *context,
 }
 
 void
-ibus_input_context_set_cursor_location_relative (IBusInputContext *context,
-                                                 gint32            x,
-                                                 gint32            y,
-                                                 gint32            w,
-                                                 gint32            h)
-{
-    g_assert (IBUS_IS_INPUT_CONTEXT (context));
-
-    g_dbus_proxy_call ((GDBusProxy *) context,
-                       "SetCursorLocationRelative",         /* method_name */
-                       g_variant_new ("(iiii)", x, y, w, h),/* parameters */
-                       G_DBUS_CALL_FLAGS_NONE,              /* flags */
-                       -1,                                  /* timeout */
-                       NULL,                                /* cancellable */
-                       NULL,                                /* callback */
-                       NULL                                 /* user_data */
-                       );
-}
-
-void
 ibus_input_context_set_capabilities (IBusInputContext   *context,
                                      guint32             capabilites)
 {
@@ -1083,40 +1055,6 @@ ibus_input_context_needs_surrounding_text (IBusInputContext *context)
     IBusInputContextPrivate *priv;
     priv = IBUS_INPUT_CONTEXT_GET_PRIVATE (IBUS_INPUT_CONTEXT (context));
     return priv->needs_surrounding_text;
-}
-
-void
-ibus_input_context_set_content_type (IBusInputContext *context,
-                                     guint             purpose,
-                                     guint             hints)
-{
-    g_assert (IBUS_IS_INPUT_CONTEXT (context));
-
-    GVariant *cached_content_type =
-        g_dbus_proxy_get_cached_property ((GDBusProxy *) context,
-                                          "ContentType");
-    GVariant *content_type = g_variant_new ("(uu)", purpose, hints);
-
-    g_variant_ref_sink (content_type);
-    if (cached_content_type == NULL ||
-        !g_variant_equal (content_type, cached_content_type)) {
-        g_dbus_proxy_call ((GDBusProxy *) context,
-                           "org.freedesktop.DBus.Properties.Set",
-                           g_variant_new ("(ssv)",
-                                          IBUS_INTERFACE_INPUT_CONTEXT,
-                                          "ContentType",
-                                          content_type),
-                           G_DBUS_CALL_FLAGS_NONE,
-                           -1,
-                           NULL, /* cancellable */
-                           NULL, /* callback */
-                           NULL  /* user_data */
-                           );
-    }
-
-    if (cached_content_type != NULL)
-        g_variant_unref (cached_content_type);
-    g_variant_unref (content_type);
 }
 
 void

@@ -7,17 +7,17 @@
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
- * version 2.1 of the License, or (at your option) any later version.
+ * version 2 of the License, or (at your option) any later version.
  *
  * This library is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.	 See the GNU
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301
- * USA
+ * License along with this library; if not, write to the
+ * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
+ * Boston, MA 02111-1307, USA.
  */
 #include "ibusinternal.h"
 #include "ibusmarshalers.h"
@@ -287,7 +287,6 @@ ibus_config_new (GDBusConnection  *connection,
     g_assert (G_IS_DBUS_CONNECTION (connection));
 
     GInitable *initable;
-    char *owner;
 
     GDBusProxyFlags flags = G_DBUS_PROXY_FLAGS_DO_NOT_AUTO_START |
                             G_DBUS_PROXY_FLAGS_DO_NOT_LOAD_PROPERTIES |
@@ -306,8 +305,7 @@ ibus_config_new (GDBusConnection  *connection,
     if (initable == NULL)
         return NULL;
 
-    owner = g_dbus_proxy_get_name_owner (G_DBUS_PROXY (initable));
-    if (owner == NULL) {
+    if (g_dbus_proxy_get_name_owner (G_DBUS_PROXY (initable)) == NULL) {
         /* The configuration daemon, which is usually ibus-gconf, is not started yet. */
         g_set_error (error,
                      IBUS_ERROR,
@@ -316,7 +314,6 @@ ibus_config_new (GDBusConnection  *connection,
         g_object_unref (initable);
         return NULL;
     }
-    g_free (owner);
 
     /* clients should not destroy the config service. */
     IBUS_PROXY (initable)->own = FALSE;
@@ -370,9 +367,7 @@ ibus_config_new_async_finish (GAsyncResult  *res,
     g_object_unref (source_object);
 
     if (object != NULL) {
-        char *owner;
-        owner = g_dbus_proxy_get_name_owner (G_DBUS_PROXY (object));
-        if (owner == NULL) {
+        if (g_dbus_proxy_get_name_owner (G_DBUS_PROXY (object)) == NULL) {
             /* The configuration daemon, which is usually ibus-gconf, 
              * is not started yet. */
             g_set_error (error,
@@ -382,7 +377,6 @@ ibus_config_new_async_finish (GAsyncResult  *res,
             g_object_unref (object);
             return NULL;
         }
-        g_free (owner);
         /* clients should not destroy the config service. */
         IBUS_PROXY (object)->own = FALSE;
         return IBUS_CONFIG (object);

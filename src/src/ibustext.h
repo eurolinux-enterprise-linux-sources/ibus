@@ -1,43 +1,42 @@
 /* -*- mode: C; c-basic-offset: 4; indent-tabs-mode: nil; -*- */
 /* vim:set et sts=4: */
 /* IBus - The Input Bus
- * Copyright (C) 2008-2013 Peng Huang <shawn.p.huang@gmail.com>
- * Copyright (C) 2008-2013 Red Hat, Inc.
+ * Copyright (C) 2008-2010 Peng Huang <shawn.p.huang@gmail.com>
+ * Copyright (C) 2008-2010 Red Hat, Inc.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
- * version 2.1 of the License, or (at your option) any later version.
+ * version 2 of the License, or (at your option) any later version.
  *
  * This library is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.	 See the GNU
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301
- * USA
+ * License along with this library; if not, write to the
+ * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
+ * Boston, MA 02111-1307, USA.
  */
 
 #if !defined (__IBUS_H_INSIDE__) && !defined (IBUS_COMPILATION)
 #error "Only <ibus.h> can be included directly"
 #endif
 
-#ifndef __IBUS_TEXT_H_
-#define __IBUS_TEXT_H_
-
 /**
  * SECTION: ibustext
  * @short_description: Text with decorating information.
+ * @see_also: #IBusAttribute
  *
  * An IBusText is the main text object in IBus.
  * The text is decorated according to associated IBusAttribute,
  * e.g. the foreground/background color, underline, and
  * applied scope.
- *
- * see_also: #IBusAttribute
  */
+
+#ifndef __IBUS_TEXT_H_
+#define __IBUS_TEXT_H_
 
 #include "ibusserializable.h"
 #include "ibusattrlist.h"
@@ -91,37 +90,34 @@ GType            ibus_text_get_type                 (void);
 /**
  * ibus_text_new_from_string:
  * @str: An text string to be set.
+ * @returns: A newly allocated IBusText.
  *
- * Creates a new #IBusText from a string.
- * @str will be duplicated in #IBusText, so feel free to free @str after this
- * function.
+ * New an IBusText from a string.
  *
- * Returns: A newly allocated #IBusText.
+ * @str will be duplicated in IBusText, so feel free to free @str after this function.
  */
 IBusText        *ibus_text_new_from_string          (const gchar    *str);
 
 /**
  * ibus_text_new_from_ucs4:
  * @str: An text string to be set.
+ * @returns: A newly allocated IBusText.
  *
- * Creates a new #IBusText from an UCS-4 encoded string.
- * @str will be duplicated in IBusText, so feel free to free @str after this
- * function.
+ * New an IBusText from an UCS-4 encoded string.
  *
- * Returns: A newly allocated #IBusText.
+ * @str will be duplicated in IBusText, so feel free to free @str after this function.
  */
 IBusText        *ibus_text_new_from_ucs4            (const gunichar *str);
 
 /**
  * ibus_text_new_from_static_string: (skip)
  * @str: An text string to be set.
+ * @returns: A newly allocated IBusText.
  *
- * Creates a new #IBusText from a static string.
+ * New an IBusText from a static string.
  *
  * Since @str is a static string which won't be freed.
  * This function will NOT duplicate @str.
- *
- * Returns: A newly allocated #IBusText.
  */
 IBusText        *ibus_text_new_from_static_string   (const gchar    *str);
 
@@ -129,12 +125,11 @@ IBusText        *ibus_text_new_from_static_string   (const gchar    *str);
  * ibus_text_new_from_printf:
  * @fmt: printf format string.
  * @...: arguments for @fmt.
+ * @returns: A newly allocated IBusText.
  *
- * Creates a new #IBusText from a printf expression.
+ * New an IBusText from a printf expression.
  *
  * The result of printf expression is stored in the new IBusText instance.
- *
- * Returns: A newly allocated #IBusText.
  */
 IBusText        *ibus_text_new_from_printf          (const gchar    *fmt,
                                                      ...) G_GNUC_PRINTF (1, 2);
@@ -142,10 +137,9 @@ IBusText        *ibus_text_new_from_printf          (const gchar    *fmt,
 /**
  * ibus_text_new_from_unichar:
  * @c: A single UCS4-encoded character.
+ * @returns: A newly allocated IBusText.
  *
- * Creates a new #IBusText from a single UCS4-encoded character.
- *
- * Returns: A newly allocated #IBusText.
+ * New an IBusText from a single UCS4-encoded character.
  */
 IBusText        *ibus_text_new_from_unichar         (gunichar        c);
 
@@ -166,43 +160,39 @@ void             ibus_text_append_attribute         (IBusText       *text,
                                                      gint            end_index);
 /**
  * ibus_text_get_length:
- * @text: An #IBusText.
+ * @text: An IBusText.
+ * @returns: Number of character in @text, not counted by bytes.
  *
- * Return number of characters in an #IBusText.
+ * Return number of characters in an IBusText.
  * This function is based on g_utf8_strlen(), so unlike strlen(),
  * it does not count by bytes but characters instead.
- *
- * Returns: Number of character in @text, not counted by bytes.
  */
 guint            ibus_text_get_length               (IBusText       *text);
 
 /**
  * ibus_text_get_is_static: (skip)
- * @text: An #IBusText.
+ * @text: An IBusText.
+ * @returns: the is_static in @text.
  *
- * Return the is_static in an #IBusText.
- *
- * Returns: the is_static in @text.
+ * Return the is_static in an IBusText.
  */
 gboolean         ibus_text_get_is_static            (IBusText       *text);
 
 /**
  * ibus_text_get_text:
- * @text: An #IBusText.
+ * @text: An IBusText.
+ * @returns: the text in @text.
  *
- * Return the text in an #IBusText. Should not be freed.
- *
- * Returns: the text in @text.
+ * Return the text in an IBusText. Should not be freed.
  */
 const gchar *    ibus_text_get_text                 (IBusText       *text);
 
 /**
  * ibus_text_get_attributes:
- * @text: An #IBusText.
+ * @text: An IBusText.
+ * @returns: (transfer none): the attrs in @text.
  *
- * Return the attributes in an #IBusText. Should not be freed.
- *
- * Returns: (transfer none): the attrs in @text.
+ * Return the attributes in an IBusText. Should not be freed.
  */
 IBusAttrList *   ibus_text_get_attributes           (IBusText       *text);
 

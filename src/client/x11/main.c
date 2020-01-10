@@ -1,26 +1,25 @@
 /* -*- mode: C; c-basic-offset: 4; indent-tabs-mode: nil; -*- */
 /* vim:set et sts=4: */
 /* ibus
- * Copyright (C) 2007-2015 Peng Huang <shawn.p.huang@gmail.com>
- * Copyright (C) 2015-2017 Takao Fujiwara <takao.fujiwara1@gmail.com>
- * Copyright (C) 2007-2015 Red Hat, Inc.
+ * Copyright (C) 2007-2010 Peng Huang <shawn.p.huang@gmail.com>
+ * Copyright (C) 2007-2010 Red Hat, Inc.
  *
  * main.c:
  *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
+ * This tool is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Library General Public
  * License as published by the Free Software Foundation; either
- * version 2.1 of the License, or (at your option) any later version.
+ * version 2 of the License, or (at your option) any later version.
  *
  * This library is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Lesser General Public License for more details.
+ * Library General Public License for more details.
  *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301
- * USA
+ * You should have received a copy of the GNU Library General Public
+ * License along with this library; if not, write to the
+ * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
+ * Boston, MA 02111-1307, USA.
  */
 #define _GNU_SOURCE
 
@@ -117,7 +116,7 @@ static gint     g_debug_level = 0;
 
 static IBusBus *_bus = NULL;
 
-static gboolean _use_sync_mode = TRUE;
+static gboolean _use_sync_mode = FALSE;
 
 static void
 _xim_preedit_start (XIMS xims, const X11IC *x11ic)
@@ -274,6 +273,7 @@ _xim_store_ic_values (X11IC *x11ic, IMChangeICStruct *call_data)
     XICAttribute *sts_attr = call_data->status_attr;
 
     gint i;
+    guint32 attrs = 1;
 
     g_return_val_if_fail (x11ic != NULL, 0);
     for (i = 0; i < (int)call_data->ic_attr_num; ++i, ++ic_attr) {
@@ -306,7 +306,7 @@ _xim_store_ic_values (X11IC *x11ic, IMChangeICStruct *call_data)
         LOG (1, "Unknown status attribute: %s", sts_attr->name);
     }
 
-    return 1;
+    return attrs;
 }
 
 
@@ -1015,8 +1015,7 @@ _init_ibus (void)
     g_signal_connect (_bus, "disconnected",
                         G_CALLBACK (_bus_disconnected_cb), NULL);
 
-    /* https://github.com/ibus/ibus/issues/1713 */
-    _use_sync_mode = _get_boolean_env ("IBUS_ENABLE_SYNC_MODE", TRUE);
+    _use_sync_mode = _get_boolean_env ("IBUS_ENABLE_SYNC_MODE", FALSE);
 }
 
 static void
@@ -1070,13 +1069,9 @@ _xim_init_IMdkit ()
         sizeof (ims_encodings)/sizeof (XIMEncoding) - 1;
     encodings.supported_encodings = ims_encodings;
 
-    _xims = IMOpenIM (GDK_DISPLAY_XDISPLAY (gdk_display_get_default ()),
+    _xims = IMOpenIM(GDK_DISPLAY_XDISPLAY (gdk_display_get_default ()),
         IMModifiers, "Xi18n",
-#if GTK_CHECK_VERSION (3, 0, 0)
-        IMServerWindow, GDK_WINDOW_XID (win),
-#else
-        IMServerWindow, GDK_WINDOW_XWINDOW (win),
-#endif
+        IMServerWindow, GDK_WINDOW_XWINDOW(win),
         IMServerName, _server_name != NULL ? _server_name : "ibus",
         IMLocale, _locale != NULL ? _locale : LOCALES_STRING,
         IMServerTransport, "X/",
@@ -1132,36 +1127,14 @@ _xerror_handler (Display *dpy, XErrorEvent *e)
     return 1;
 }
 
-/* When log into GNOME3 desktop immediately after the system is booted,
- * ibus-daemon is sometimes alive but ibus-x11 is dead after log out
- * the session. Because gdk_x_io_error() is called as the callback of
- * XSetIOErrorHandler() in gtk/gdk/x11/gdkmain-x11.c in ibus-x11.
- * Now I assume the callback is called in logout.
- */
-static int
-_xerror_io_handler (Display *dpy)
-{
-    if (_kill_daemon)
-        _atexit_cb ();
-    return 0;
-}
-
 int
 main (int argc, char **argv)
 {
     gint option_index = 0;
     gint c;
 
-    /* GDK_DISPLAY_XDISPLAY() and GDK_WINDOW_XID() does not work
-     * with GdkWaylandDisplay.
-     */
-#if GTK_CHECK_VERSION (3, 10, 0)
-    gdk_set_allowed_backends ("x11");
-#endif
-
     gtk_init (&argc, &argv);
     XSetErrorHandler (_xerror_handler);
-    XSetIOErrorHandler (_xerror_io_handler);
 
     while (1) {
         static struct option long_options [] = {

@@ -1,24 +1,23 @@
 /* -*- mode: C; c-basic-offset: 4; indent-tabs-mode: nil; -*- */
 /* vim:set et sts=4: */
 /* ibus - The Input Bus
- * Copyright (C) 2008-2013 Peng Huang <shawn.p.huang@gmail.com>
- * Copyright (C) 2015-2017 Takao Fujiwara <takao.fujiwara1@gmail.com>
- * Copyright (C) 2008-2017 Red Hat, Inc.
+ * Copyright (C) 2008-2010 Peng Huang <shawn.p.huang@gmail.com>
+ * Copyright (C) 2008-2010 Red Hat, Inc.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
- * version 2.1 of the License, or (at your option) any later version.
+ * version 2 of the License, or (at your option) any later version.
  *
  * This library is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301
- * USA
+ * License along with this library; if not, write to the
+ * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
+ * Boston, MA 02111-1307, USA.
  */
 
 #ifdef HAVE_CONFIG_H
@@ -30,10 +29,6 @@
 #include <gdk/gdkkeysyms.h>
 #include <ibus.h>
 #include "ibusimcontext.h"
-
-#ifdef GDK_WINDOWING_WAYLAND
-#include <gdk/gdkwayland.h>
-#endif
 
 #if !GTK_CHECK_VERSION (2, 91, 0)
 #  define DEPRECATED_GDK_KEYSYMS 1
@@ -100,8 +95,6 @@ static GtkWidget *_input_widget = NULL;
 static void     ibus_im_context_class_init  (IBusIMContextClass    *class);
 static void     ibus_im_context_class_fini  (IBusIMContextClass    *class);
 static void     ibus_im_context_init        (GObject               *obj);
-static void     ibus_im_context_notify      (GObject               *obj,
-                                             GParamSpec            *pspec);
 static void     ibus_im_context_finalize    (GObject               *obj);
 static void     ibus_im_context_reset       (GtkIMContext          *context);
 static gboolean ibus_im_context_filter_keypress
@@ -157,7 +150,6 @@ static gboolean _slave_delete_surrounding_cb
                                              IBusIMContext      *context);
 static void     _request_surrounding_text   (IBusIMContext      *context);
 static void     _create_fake_input_context  (void);
-static void     _set_content_type           (IBusIMContext      *context);
 
 
 
@@ -248,51 +240,6 @@ _focus_out_cb (GtkWidget     *widget,
     return FALSE;
 }
 
-static gboolean
-ibus_im_context_commit_event (IBusIMContext *ibusimcontext,
-                              GdkEventKey   *event)
-{
-    int i;
-    GdkModifierType no_text_input_mask;
-    gunichar ch;
-
-    if (event->type == GDK_KEY_RELEASE)
-        return FALSE;
-    /* Ignore modifier key presses */
-    for (i = 0; i < G_N_ELEMENTS (IBUS_COMPOSE_IGNORE_KEYLIST); i++)
-        if (event->keyval == IBUS_COMPOSE_IGNORE_KEYLIST[i])
-            return FALSE;
-#if GTK_CHECK_VERSION (3, 4, 0)
-    no_text_input_mask = gdk_keymap_get_modifier_mask (
-            gdk_keymap_get_for_display (gdk_display_get_default ()),
-            GDK_MODIFIER_INTENT_NO_TEXT_INPUT);
-#else
-#  ifndef GDK_WINDOWING_QUARTZ
-#    define _IBUS_NO_TEXT_INPUT_MOD_MASK (GDK_MOD1_MASK | GDK_CONTROL_MASK)
-#  else
-#    define _IBUS_NO_TEXT_INPUT_MOD_MASK (GDK_MOD2_MASK | GDK_CONTROL_MASK)
-#  endif
-
-    no_text_input_mask = _IBUS_NO_TEXT_INPUT_MOD_MASK;
-
-#  undef _IBUS_NO_TEXT_INPUT_MOD_MASK
-#endif
-    if (event->state & no_text_input_mask ||
-        event->keyval == GDK_KEY_Return ||
-        event->keyval == GDK_KEY_ISO_Enter ||
-        event->keyval == GDK_KEY_KP_Enter) {
-        return FALSE;
-    }
-    ch = ibus_keyval_to_unicode (event->keyval);
-    if (ch != 0 && !g_unichar_iscntrl (ch)) {
-        IBusText *text = ibus_text_new_from_unichar (ch);
-        g_signal_emit (ibusimcontext, _signal_commit_id, 0, text->text);
-        g_object_unref (text);
-        return TRUE;
-    }
-   return FALSE;
-}
-
 static void
 _process_key_event_done (GObject      *object,
                          GAsyncResult *res,
@@ -381,26 +328,6 @@ _request_surrounding_text (IBusIMContext *context)
                                                  context->caps);
         }
     }
-}
-
-static void
-_set_content_type (IBusIMContext *context)
-{
-#if GTK_CHECK_VERSION (3, 6, 0)
-    if (context->ibuscontext != NULL) {
-        GtkInputPurpose purpose;
-        GtkInputHints hints;
-
-        g_object_get (G_OBJECT (context),
-                      "input-purpose", &purpose,
-                      "input-hints", &hints,
-                      NULL);
-
-        ibus_input_context_set_content_type (context->ibuscontext,
-                                             purpose,
-                                             hints);
-    }
-#endif
 }
 
 
@@ -542,13 +469,7 @@ daemon_name_appeared (GDBusConnection *connection,
                       const gchar     *owner,
                       gpointer         data)
 {
-    /* If ibus-daemon is running and run ssh -X localhost,
-     * daemon_name_appeared() is called but ibus_get_address() == NULL
-     * because the hostname and display number are different between
-     * ibus-daemon and clients. So IBusBus would not be connected and
-     * ibusimcontext->ibuscontext == NULL and ibusimcontext->events_queue
-     * could go beyond MAX_QUEUED_EVENTS . */
-    _daemon_is_running = (ibus_get_address () != NULL);
+    _daemon_is_running = TRUE;
 }
 
 static void
@@ -578,7 +499,6 @@ ibus_im_context_class_init (IBusIMContextClass *class)
     im_context_class->set_cursor_location = ibus_im_context_set_cursor_location;
     im_context_class->set_use_preedit = ibus_im_context_set_use_preedit;
     im_context_class->set_surrounding = ibus_im_context_set_surrounding;
-    gobject_class->notify = ibus_im_context_notify;
     gobject_class->finalize = ibus_im_context_finalize;
 
     _signal_commit_id =
@@ -629,7 +549,8 @@ ibus_im_context_class_init (IBusIMContextClass *class)
 
     /* init bus object */
     if (_bus == NULL) {
-        _bus = ibus_bus_new_async_client ();
+        ibus_set_display (gdk_display_get_name (gdk_display_get_default ()));
+        _bus = ibus_bus_new_async ();
 
         /* init the global fake context */
         if (ibus_bus_is_connected (_bus)) {
@@ -649,7 +570,7 @@ ibus_im_context_class_init (IBusIMContextClass *class)
     }
 
     _daemon_name_watch_id = g_bus_watch_name (G_BUS_TYPE_SESSION,
-                                              ibus_bus_get_service_name (_bus),
+                                              IBUS_SERVICE_IBUS,
                                               G_BUS_NAME_WATCHER_FLAGS_NONE,
                                               daemon_name_appeared,
                                               daemon_name_vanished,
@@ -771,18 +692,6 @@ ibus_im_context_init (GObject *obj)
 }
 
 static void
-ibus_im_context_notify (GObject    *obj,
-                        GParamSpec *pspec)
-{
-    IDEBUG ("%s", __FUNCTION__);
-
-    if (g_strcmp0 (pspec->name, "input-purpose") == 0 ||
-        g_strcmp0 (pspec->name, "input-hints") == 0) {
-        _set_content_type (IBUS_IM_CONTEXT (obj));
-    }
-}
-
-static void
 ibus_im_context_finalize (GObject *obj)
 {
     IDEBUG ("%s", __FUNCTION__);
@@ -843,11 +752,8 @@ ibus_im_context_filter_keypress (GtkIMContext *context,
     if (event->state & IBUS_HANDLED_MASK)
         return TRUE;
 
-    /* Do not call gtk_im_context_filter_keypress() because
-     * gtk_im_context_simple_filter_keypress() binds Ctrl-Shift-u
-     */
     if (event->state & IBUS_IGNORED_MASK)
-        return ibus_im_context_commit_event (ibusimcontext, event);
+        return gtk_im_context_filter_keypress (ibusimcontext->slave, event);
 
     /* XXX it is a workaround for some applications do not set client
      * window. */
@@ -897,6 +803,18 @@ ibus_im_context_focus_in (GtkIMContext *context)
         return;
 
     /* don't set focus on password entry */
+#if GTK_CHECK_VERSION (3, 6, 0)
+    {
+        GtkInputPurpose purpose;
+
+        g_object_get (G_OBJECT (context),
+                      "input-purpose", &purpose,
+                      NULL);
+
+        if (purpose == GTK_INPUT_PURPOSE_PASSWORD)
+            return;
+    }
+#endif
     if (ibusimcontext->client_window != NULL) {
         GtkWidget *widget;
 
@@ -909,15 +827,12 @@ ibus_im_context_focus_in (GtkIMContext *context)
         }
     }
 
-    /* Do not call gtk_im_context_focus_out() here.
-     * google-chrome's notification popup window (Pushbullet)
-     * takes the focus and the popup window disappears.
-     * So other applications lose the focus because
-     * ibusimcontext->has_focus is FALSE if
-     * gtk_im_context_focus_out() is called here when
-     * _focus_im_context != context.
-     */
-    if (_focus_im_context == NULL) {
+    if (_focus_im_context != NULL) {
+        g_assert (_focus_im_context != context);
+        gtk_im_context_focus_out (_focus_im_context);
+        g_assert (_focus_im_context == NULL);
+    }
+    else {
         /* focus out fake context */
         if (_fake_context != NULL) {
             ibus_input_context_focus_out (_fake_context);
@@ -926,7 +841,6 @@ ibus_im_context_focus_in (GtkIMContext *context)
 
     ibusimcontext->has_focus = TRUE;
     if (ibusimcontext->ibuscontext) {
-        _set_content_type (ibusimcontext);
         ibus_input_context_focus_in (ibusimcontext->ibuscontext);
     }
 
@@ -958,6 +872,7 @@ ibus_im_context_focus_out (GtkIMContext *context)
         return;
     }
 
+    g_assert (context == _focus_im_context);
     g_object_remove_weak_pointer ((GObject *) context,
                                   (gpointer *) &_focus_im_context);
     _focus_im_context = NULL;
@@ -1048,24 +963,6 @@ ibus_im_context_set_client_window (GtkIMContext *context, GdkWindow *client)
         gtk_im_context_set_client_window (ibusimcontext->slave, client);
 }
 
-static void
-_set_rect_scale_factor_with_window (GdkRectangle *area,
-                                    GdkWindow    *window)
-{
-#if GTK_CHECK_VERSION (3, 10, 0)
-    int scale_factor;
-
-    g_assert (area);
-    g_assert (GDK_IS_WINDOW (window));
-
-    scale_factor = gdk_window_get_scale_factor (window);
-    area->x *= scale_factor;
-    area->y *= scale_factor;
-    area->width *= scale_factor;
-    area->height *= scale_factor;
-#endif
-}
-
 static gboolean
 _set_cursor_location_internal (IBusIMContext *ibusimcontext)
 {
@@ -1077,32 +974,6 @@ _set_cursor_location_internal (IBusIMContext *ibusimcontext)
     }
 
     area = ibusimcontext->cursor_area;
-
-#ifdef GDK_WINDOWING_WAYLAND
-    if (GDK_IS_WAYLAND_DISPLAY (gdk_display_get_default ())) {
-        gdouble px, py;
-        GdkWindow *parent;
-        GdkWindow *window = ibusimcontext->client_window;
-
-        while ((parent = gdk_window_get_effective_parent (window)) != NULL) {
-            gdk_window_coords_to_parent (window, area.x, area.y, &px, &py);
-            area.x = px;
-            area.y = py;
-            window = parent;
-        }
-
-        _set_rect_scale_factor_with_window (&area,
-                                            ibusimcontext->client_window);
-        ibus_input_context_set_cursor_location_relative (
-            ibusimcontext->ibuscontext,
-            area.x,
-            area.y,
-            area.width,
-            area.height);
-        return FALSE;
-    }
-#endif
-
     if (area.x == -1 && area.y == -1 && area.width == 0 && area.height == 0) {
 #if GTK_CHECK_VERSION (2, 91, 0)
         area.x = 0;
@@ -1118,7 +989,6 @@ _set_cursor_location_internal (IBusIMContext *ibusimcontext)
     gdk_window_get_root_coords (ibusimcontext->client_window,
                                 area.x, area.y,
                                 &area.x, &area.y);
-    _set_rect_scale_factor_with_window (&area, ibusimcontext->client_window);
     ibus_input_context_set_cursor_location (ibusimcontext->ibuscontext,
                                             area.x,
                                             area.y,
@@ -1671,13 +1541,6 @@ _create_input_context_done (IBusBus       *bus,
         ibus_input_context_set_capabilities (ibusimcontext->ibuscontext, ibusimcontext->caps);
 
         if (ibusimcontext->has_focus) {
-            /* The time order is _create_input_context() ->
-             * ibus_im_context_notify() -> ibus_im_context_focus_in() ->
-             * _create_input_context_done()
-             * so _set_content_type() is called at the beginning here
-             * because ibusimcontext->ibuscontext == NULL before. */
-            _set_content_type (ibusimcontext);
-
             ibus_input_context_focus_in (ibusimcontext->ibuscontext);
             _set_cursor_location_internal (ibusimcontext);
         }

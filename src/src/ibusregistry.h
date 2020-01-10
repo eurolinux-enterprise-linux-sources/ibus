@@ -8,17 +8,17 @@
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
- * version 2.1 of the License, or (at your option) any later version.
+ * version 2 of the License, or (at your option) any later version.
  *
  * This library is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.	 See the GNU
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301
- * USA
+ * License along with this library; if not, write to the
+ * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
+ * Boston, MA 02111-1307, USA.
  */
 
 #if !defined (__IBUS_H_INSIDE__) && !defined (IBUS_COMPILATION)
@@ -88,10 +88,9 @@ GType            ibus_registry_get_type         (void);
 
 /**
  * ibus_registry_new:
+ * @returns: A newly allocated #IBusRegistry.
  *
- * Creates a new #IBusRegistry
- *
- * Returns: A newly allocated #IBusRegistry.
+ * New a #IBusRegistry
  */
 IBusRegistry    *ibus_registry_new              (void);
 
@@ -123,11 +122,10 @@ void             ibus_registry_load_in_dir      (IBusRegistry   *registry,
  * ibus_registry_load_cache:
  * @registry: An #IBusRegistry.
  * @is_user: %TRUE if the registry cache is loaded in the user directory.
+ * @returns: %TRUE if the cache exists and is loaded successfully,
+ *           %FALSE otherwise.
  *
  * Load the user or system registry cache.
- *
- * Returns: %TRUE if the cache exists and is loaded successfully,
- *           %FALSE otherwise.
  */
 gboolean         ibus_registry_load_cache       (IBusRegistry   *registry,
                                                  gboolean        is_user);
@@ -136,11 +134,10 @@ gboolean         ibus_registry_load_cache       (IBusRegistry   *registry,
  * ibus_registry_load_cache_file:
  * @registry: An #IBusRegistry.
  * @filename: The file path of the registry cache
+ * @returns: %TRUE if the cache exists and is loaded successfully,
+ *           %FALSE otherwise.
  *
  * Load the registry cache @filename.
- *
- * Returns: %TRUE if the cache exists and is loaded successfully,
- *           %FALSE otherwise.
  */
 gboolean         ibus_registry_load_cache_file  (IBusRegistry   *registry,
                                                  const gchar    *filename);
@@ -149,10 +146,9 @@ gboolean         ibus_registry_load_cache_file  (IBusRegistry   *registry,
  * ibus_registry_save_cache:
  * @registry: An #IBusRegistry.
  * @is_user: %TRUE if the registry cache is saved in the user directory.
+ * @returns: %TRUE if the cache is saved successfully, %FALSE otherwise.
  *
  * Save the registry in a user directory or system directory.
- *
- * Returns: %TRUE if the cache is saved successfully, %FALSE otherwise.
  */
 gboolean         ibus_registry_save_cache       (IBusRegistry   *registry,
                                                  gboolean        is_user);
@@ -161,10 +157,9 @@ gboolean         ibus_registry_save_cache       (IBusRegistry   *registry,
  * ibus_registry_save_cache_file:
  * @registry: An #IBusRegistry.
  * @filename: The file path of the registry cache
+ * @returns: %TRUE if the cache is saved successfully, %FALSE otherwise.
  *
  * Save the registry cache @filename.
- *
- * Returns: %TRUE if the cache is saved successfully, %FALSE otherwise.
  */
 gboolean         ibus_registry_save_cache_file  (IBusRegistry   *registry,
                                                  const gchar    *filename);
@@ -185,10 +180,9 @@ void             ibus_registry_output           (IBusRegistry   *registry,
 /**
  * ibus_registry_check_modification:
  * @registry: An #IBusRegistry.
+ * @returns: %TRUE if mtime is changed; %FALSE otherwise.
  *
  * Check if the registry is updated.
- *
- * Returns: %TRUE if mtime is changed; %FALSE otherwise.
  */
 gboolean         ibus_registry_check_modification
                                                 (IBusRegistry   *registry);
@@ -196,24 +190,22 @@ gboolean         ibus_registry_check_modification
 /**
  * ibus_registry_get_components:
  * @registry: An #IBusRegistry.
- *
- * List components.
- *
- * Returns: (transfer container) (element-type IBusComponent):
+ * @returns: (transfer container) (element-type IBusComponent):
  * a list of #IBusComponent objects.
  * The caller has to call g_list_free() for the returned list.
+ *
+ * List components.
  */
 GList           *ibus_registry_get_components   (IBusRegistry   *registry);
 
 /**
  * ibus_registry_get_observed_paths:
  * @registry: An #IBusRegistry.
- *
- * List observed paths.
- *
- * Returns: (transfer container) (element-type IBusObservedPath):
+ * @returns: (transfer container) (element-type IBusObservedPath):
  * a list of #IBusObservedPath objects.
  * The caller has to call g_list_free() for the returned list.
+ *
+ * List observed paths.
  */
 GList           *ibus_registry_get_observed_paths
                                                 (IBusRegistry   *registry);

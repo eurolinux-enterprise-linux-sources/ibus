@@ -3,29 +3,26 @@
 # ibus - The Input Bus
 #
 # Copyright (c) 2007-2013 Peng Huang <shawn.p.huang@gmail.com>
-# Copyright (c) 2015-2017 Takao Fujiwara <takao.fujiwara1@gmail.com>
-# Copyright (c) 2007-2017 Red Hat, Inc.
+# Copyright (c) 2007-2013 Red Hat, Inc.
 #
 # This library is free software; you can redistribute it and/or
 # modify it under the terms of the GNU Lesser General Public
 # License as published by the Free Software Foundation; either
-# version 2.1 of the License, or (at your option) any later version.
+# version 2 of the License, or (at your option) any later version.
 #
 # This library is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-# Lesser General Public License for more details.
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Lesser General Public License for more details.
 #
 # You should have received a copy of the GNU Lesser General Public
-# License along with this library; if not, write to the Free Software
-# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301
-# USA
+# License along with this program; if not, write to the
+# Free Software Foundation, Inc., 59 Temple Place, Suite 330,
+# Boston, MA  02111-1307  USA
 
 NULL =
 
 libibus = $(top_builddir)/src/libibus-@IBUS_API_VERSION@.la
-libibus_emoji_dialog = \
-    $(top_builddir)/ui/gtk3/libibus-emoji-dialog-@IBUS_API_VERSION@.la
 
 # force include config.h before gi18n.h.
 AM_CPPFLAGS = \
@@ -39,7 +36,6 @@ AM_CFLAGS = \
 	@GIO2_CFLAGS@ \
 	@GTHREAD2_CFLAGS@ \
 	-DG_LOG_DOMAIN=\"IBUS\" \
-	-DLIBEXECDIR=\"$(libexecdir)\" \
 	-DIBUS_DISABLE_DEPRECATED \
 	-Wno-unused-variable \
 	-Wno-unused-but-set-variable \
@@ -81,7 +77,7 @@ bash_completiondir=@datadir@/bash-completion/completions
 man_one_in_files = ibus.1.in
 man_one_files = $(man_one_in_files:.1.in=.1)
 man_one_DATA =$(man_one_files:.1=.1.gz) 
-man_onedir = $(mandir)/man1
+man_onedir = $(datadir)/man/man1
 %.1: %.1.in
 	$(AM_V_GEN) sed \
 		-e 's|@VERSION[@]|$(VERSION)|g' $< > $@.tmp && \
@@ -98,13 +94,5 @@ CLEANFILES = \
 	$(man_one_DATA) \
 	$(man_one_files) \
 	$(NULL)
-
-if ENABLE_EMOJI_DICT
-if ENABLE_UI
-AM_VALAFLAGS += \
-    --define=EMOJI_DICT \
-    $(NULL)
-endif
-endif
 
 -include $(top_srcdir)/git.mk

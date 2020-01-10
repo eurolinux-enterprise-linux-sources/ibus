@@ -1,12 +1,36 @@
 
 /* Generated data (by glib-mkenums) */
 
+/**
+ * SECTION: ibusenumtypes
+ * @short_description: Enumeration definition in IBus.
+ * @stability: Stable
+ *
+ * IBusEnumTypes lists IBus enumeration types.
+ */
 #ifndef __IBUS_ENUM_TYPES_H__
 #define __IBUS_ENUM_TYPES_H__
 
 #include <glib-object.h>
 
 G_BEGIN_DECLS
+
+/* enumerations from "ibusobject.h" */
+/**
+ * ibus_object_flags_get_type:
+ * @returns: GType of IBUS_OBJECT_FLAGS
+ *
+ * Returns the type of IBUS_OBJECT_FLAGS as GType.
+ */
+GType ibus_object_flags_get_type (void) G_GNUC_CONST;
+
+/**
+ * IBUS_TYPE_OBJECT_FLAGS:
+ * @returns: GType of IBUS_OBJECT_FLAGS
+ *
+ * Returns the type of IBUS_OBJECT_FLAGS as GType.
+ */
+#define IBUS_TYPE_OBJECT_FLAGS (ibus_object_flags_get_type ())
 
 /* enumerations from "ibusattribute.h" */
 /**
@@ -39,23 +63,6 @@ GType ibus_attr_underline_get_type (void) G_GNUC_CONST;
  * Returns the type of IBUS_ATTR_UNDERLINE as GType.
  */
 #define IBUS_TYPE_ATTR_UNDERLINE (ibus_attr_underline_get_type ())
-
-/* enumerations from "ibusobject.h" */
-/**
- * ibus_object_flags_get_type:
- * @returns: GType of IBUS_OBJECT_FLAGS
- *
- * Returns the type of IBUS_OBJECT_FLAGS as GType.
- */
-GType ibus_object_flags_get_type (void) G_GNUC_CONST;
-
-/**
- * IBUS_TYPE_OBJECT_FLAGS:
- * @returns: GType of IBUS_OBJECT_FLAGS
- *
- * Returns the type of IBUS_OBJECT_FLAGS as GType.
- */
-#define IBUS_TYPE_OBJECT_FLAGS (ibus_object_flags_get_type ())
 
 /* enumerations from "ibusproperty.h" */
 /**
@@ -210,36 +217,6 @@ GType ibus_error_get_type (void) G_GNUC_CONST;
  * Returns the type of IBUS_ERROR as GType.
  */
 #define IBUS_TYPE_ERROR (ibus_error_get_type ())
-/**
- * ibus_input_purpose_get_type:
- * @returns: GType of IBUS_INPUT_PURPOSE
- *
- * Returns the type of IBUS_INPUT_PURPOSE as GType.
- */
-GType ibus_input_purpose_get_type (void) G_GNUC_CONST;
-
-/**
- * IBUS_TYPE_INPUT_PURPOSE:
- * @returns: GType of IBUS_INPUT_PURPOSE
- *
- * Returns the type of IBUS_INPUT_PURPOSE as GType.
- */
-#define IBUS_TYPE_INPUT_PURPOSE (ibus_input_purpose_get_type ())
-/**
- * ibus_input_hints_get_type:
- * @returns: GType of IBUS_INPUT_HINTS
- *
- * Returns the type of IBUS_INPUT_HINTS as GType.
- */
-GType ibus_input_hints_get_type (void) G_GNUC_CONST;
-
-/**
- * IBUS_TYPE_INPUT_HINTS:
- * @returns: GType of IBUS_INPUT_HINTS
- *
- * Returns the type of IBUS_INPUT_HINTS as GType.
- */
-#define IBUS_TYPE_INPUT_HINTS (ibus_input_hints_get_type ())
 G_END_DECLS
 
 #endif /* __IBUS_ENUM_TYPES_H__ */

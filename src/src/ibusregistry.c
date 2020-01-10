@@ -1,24 +1,24 @@
 /* -*- mode: C; c-basic-offset: 4; indent-tabs-mode: nil; -*- */
 /* vim:set et sts=4: */
 /* bus - The Input Bus
- * Copyright (C) 2015 Peng Huang <shawn.p.huang@gmail.com>
- * Copyright (C) 2015 Takao Fujiwara <takao.fujiwara1@gmail.com>
- * Copyright (C) 2015 Red Hat, Inc.
+ * Copyright (C) 2013 Peng Huang <shawn.p.huang@gmail.com>
+ * Copyright (C) 2013 Takao Fujiwara <takao.fujiwara1@gmail.com>
+ * Copyright (C) 2013 Red Hat, Inc.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
- * version 2.1 of the License, or (at your option) any later version.
+ * version 2 of the License, or (at your option) any later version.
  *
  * This library is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.	 See the GNU
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301
- * USA
+ * License along with this library; if not, write to the
+ * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
+ * Boston, MA 02111-1307, USA.
  */
 #include <gio/gio.h>
 #include <glib/gstdio.h>
@@ -29,7 +29,7 @@
 #include "ibusregistry.h"
 
 #define IBUS_CACHE_MAGIC 0x49425553 /* "IBUS" */
-#define IBUS_CACHE_VERSION 0x00010512
+#define IBUS_CACHE_VERSION 0x00010502
 
 enum {
     CHANGED,
@@ -374,26 +374,12 @@ ibus_registry_check_modification (IBusRegistry *registry)
     g_assert (IBUS_IS_REGISTRY (registry));
 
     for (p = registry->priv->observed_paths; p != NULL; p = p->next) {
-        if (!IBUS_IS_OBSERVED_PATH (p->data)) {
-            g_warning ("The registry cache of observed_paths might be " \
-                       "broken and have to generate the cache again.");
-            g_list_free_full (registry->priv->observed_paths, g_object_unref);
-            registry->priv->observed_paths = NULL;
-            return TRUE;
-        }
         if (ibus_observed_path_check_modification (
                     (IBusObservedPath *) p->data))
             return TRUE;
     }
 
     for (p = registry->priv->components; p != NULL; p = p->next) {
-        if (!IBUS_IS_COMPONENT (p->data)) {
-            g_warning ("The registry cache of components might be " \
-                       "broken and have to generate the cache again.");
-            g_list_free_full (registry->priv->components, g_object_unref);
-            registry->priv->components = NULL;
-            return TRUE;
-        }
         if (ibus_component_check_modification ((IBusComponent *) p->data))
             return TRUE;
     }

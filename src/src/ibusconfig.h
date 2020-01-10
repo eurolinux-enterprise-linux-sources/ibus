@@ -1,31 +1,28 @@
 /* -*- mode: C; c-basic-offset: 4; indent-tabs-mode: nil; -*- */
 /* vim:set et sts=4: */
 /* ibus - The Input Bus
- * Copyright (C) 2008-2013 Peng Huang <shawn.p.huang@gmail.com>
- * Copyright (C) 2008-2013 Red Hat, Inc.
+ * Copyright (C) 2008-2010 Peng Huang <shawn.p.huang@gmail.com>
+ * Copyright (C) 2008-2010 Red Hat, Inc.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
- * version 2.1 of the License, or (at your option) any later version.
+ * version 2 of the License, or (at your option) any later version.
  *
  * This library is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.	 See the GNU
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301
- * USA
+ * License along with this library; if not, write to the
+ * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
+ * Boston, MA 02111-1307, USA.
  */
 
 #if !defined (__IBUS_H_INSIDE__) && !defined (IBUS_COMPILATION)
 #error "Only <ibus.h> can be included directly"
 #endif
-
-#ifndef __IBUS_CONFIG_H_
-#define __IBUS_CONFIG_H_
 
 /**
  * SECTION: ibusconfig
@@ -37,6 +34,8 @@
  *
  * Currently, IBusConfig supports gconf.
  */
+#ifndef __CONFIG_H_
+#define __CONFIG_H_
 
 #include "ibusproxy.h"
 
@@ -89,12 +88,9 @@ GType            ibus_config_get_type       (void);
 /**
  * ibus_config_new:
  * @connection: A #GDBusConnection.
- * @cancellable: A #GCancellable or %NULL.
- * @error: Return location for error or %NULL.
+ * @returns: An newly allocated #IBusConfig corresponding to @connection.
  *
- * Create a new #IBusConfig from existing #GDBusConnection.
- *
- * Returns: A newly allocated #IBusConfig corresponding to @connection.
+ * New an #IBusConfig from existing #GDBusConnection.
  */
 IBusConfig      *ibus_config_new            (GDBusConnection    *connection,
                                              GCancellable       *cancellable,
@@ -121,9 +117,9 @@ void             ibus_config_new_async      (GDBusConnection    *connection,
  *      ibus_config_new_async().
  * @error: Return location for error or %NULL.
  *
- * Finishes an operation started with ibus_config_new_async().
+ * @returns: A newly allocated #IBusConfig.
  *
- * Returns: A newly allocated #IBusConfig.
+ * Finishes an operation started with ibus_config_new_async().
  */
 IBusConfig      *ibus_config_new_async_finish
                                             (GAsyncResult       *res,
@@ -134,6 +130,7 @@ IBusConfig      *ibus_config_new_async_finish
  * @config: An #IBusConfig
  * @section: Section name of the configuration option.
  * @name: Name of the configure option.
+ * @returns: A #GVariant or %NULL. Free with g_variant_unref().
  *
  * Get the value of a configuration option synchronously.
  *
@@ -145,8 +142,6 @@ IBusConfig      *ibus_config_new_async_finish
  * ibus-chewing, for example, stores its setting in /desktop/ibus/engine/Chewing,
  * so the section name for it is "engine/Chewing".
  * See also: ibus_config_set_value().
- *
- * Returns: A #GVariant or %NULL. Free with g_variant_unref().
  */
 GVariant        *ibus_config_get_value      (IBusConfig         *config,
                                              const gchar        *section,
@@ -179,10 +174,9 @@ void             ibus_config_get_value_async (IBusConfig         *config,
  * @config: A #IBusConfig.
  * @result: A #GAsyncResult.
  * @error: Return location for error or %NULL.
+ * @returns: A #GVariant or %NULL if error is set. Free with g_variant_unref().
  * 
  * Finish get value of a configuration option.
- *
- * Returns: A #GVariant or %NULL if error is set. Free with g_variant_unref().
  *
  * See also: ibus_config_get_value_async().
  */
@@ -195,10 +189,9 @@ GVariant        *ibus_config_get_value_async_finish
  * ibus_config_get_values:
  * @config: An #IBusConfig
  * @section: Section name of the configuration option.
+ * @returns: A #GVariant or %NULL. Free with g_variant_unref().
  *
  * Get all values in a section synchronously.
- *
- * Returns: A #GVariant or %NULL. Free with g_variant_unref().
  *
  * See also: ibus_config_set_value().
  */
@@ -230,10 +223,9 @@ void             ibus_config_get_values_async(IBusConfig         *config,
  * @config: A #IBusConfig.
  * @result: A #GAsyncResult.
  * @error: Return location for error or %NULL.
+ * @returns: A #GVariant or %NULL if error is set. Free with g_variant_unref().
  * 
  * Finish get values in a section.
- *
- * Returns: A #GVariant or %NULL if error is set. Free with g_variant_unref().
  *
  * See also: ibus_config_get_values_async().
  */
@@ -249,11 +241,9 @@ GVariant        *ibus_config_get_values_async_finish
  * @name: Name of the configure option its self.
  * @value: A #GVariant that holds the value. If the value is floating, the
  * function takes ownership of it.
+ * @returns: %TRUE if succeed; %FALSE otherwise.
  *
  * Set the value of a configuration option synchronously.
- *
- * Returns: %TRUE if succeed; %FALSE otherwise.
- *
  * See also: ibus_config_get_value().
  */
 gboolean         ibus_config_set_value      (IBusConfig         *config,
@@ -291,10 +281,9 @@ void             ibus_config_set_value_async (IBusConfig         *config,
  * @config: A #IBusConfig.
  * @result: A #GAsyncResult.
  * @error: Return location for error or %NULL.
+ * @returns: %TRUE or %FALSE if error is set.
  * 
  * Finish set value of a configuration option.
- *
- * Returns: %TRUE or %FALSE if error is set.
  *
  * See also: ibus_config_set_value_async().
  */
@@ -308,11 +297,9 @@ gboolean         ibus_config_set_value_async_finish
  * @config: An #IBusConfig
  * @section: Section name of the configuration option.
  * @name: Name of the configure option its self.
+ * @returns: %TRUE if succeed; %FALSE otherwise.
  *
  * Remove an entry of a configuration option.
- *
- * Returns: %TRUE if succeed; %FALSE otherwise.
- *
  * See also: ibus_config_get_value().
  */
 gboolean         ibus_config_unset      (IBusConfig         *config,
@@ -326,6 +313,7 @@ gboolean         ibus_config_unset      (IBusConfig         *config,
  * @config: An #IBusConfig
  * @section: (allow-none): Section name of the configuration option.
  * @name: (allow-none): Name of the configure option its self.
+ * @returns: %TRUE if succeed; %FALSE otherwise.
  *
  * Subscribe to the configuration option change notification.
  *
@@ -333,8 +321,6 @@ gboolean         ibus_config_unset      (IBusConfig         *config,
  * client through #IBusConfig::value-changed signal.  Clients should
  * call ibus_config_watch() with the sections they are interested in,
  * to reduce the number of D-Bus messages.
- *
- * Returns: %TRUE if succeed; %FALSE otherwise.
  *
  * See also: ibus_config_unwatch().
  */
@@ -349,10 +335,9 @@ gboolean         ibus_config_watch      (IBusConfig         *config,
  * @config: An #IBusConfig
  * @section: (allow-none): Section name of the configuration option.
  * @name: (allow-none): Name of the configure option its self.
+ * @returns: %TRUE if succeed; %FALSE otherwise.
  *
  * Unsubscribe from the configuration option change notification.
- *
- * Returns: %TRUE if succeed; %FALSE otherwise.
  *
  * See also: ibus_config_watch.
  */

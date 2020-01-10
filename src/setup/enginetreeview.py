@@ -2,31 +2,29 @@
 #
 # ibus - The Input Bus
 #
-# Copyright (c) 2007-2015 Peng Huang <shawn.p.huang@gmail.com>
-# Copyright (c) 2007-2015 Red Hat, Inc.
+# Copyright (c) 2007-2010 Peng Huang <shawn.p.huang@gmail.com>
+# Copyright (c) 2007-2010 Red Hat, Inc.
 #
 # This library is free software; you can redistribute it and/or
 # modify it under the terms of the GNU Lesser General Public
 # License as published by the Free Software Foundation; either
-# version 2.1 of the License, or (at your option) any later version.
+# version 2 of the License, or (at your option) any later version.
 #
 # This library is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-# Lesser General Public License for more details.
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Lesser General Public License for more details.
 #
 # You should have received a copy of the GNU Lesser General Public
-# License along with this library; if not, write to the Free Software
-# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301
-# USA
+# License along with this program; if not, write to the
+# Free Software Foundation, Inc., 59 Temple Place, Suite 330,
+# Boston, MA  02111-1307  USA
 
 from gi.repository import GLib
 from gi.repository import GObject
 from gi.repository import Gtk
 from gi.repository import IBus
 from gi.repository import Pango
-
-import i18n
 
 from icon import load_icon
 from i18n import _, N_
@@ -49,7 +47,7 @@ class EngineTreeView(Gtk.TreeView):
     def __init__(self):
         super(EngineTreeView, self).__init__()
 
-        self.__engines = []
+        self.__engines = set([])
         self.__changed = False
 
         # self.set_headers_visible(True)
@@ -108,12 +106,9 @@ class EngineTreeView(Gtk.TreeView):
         engine_b = model[b][0]
         language_a = IBus.get_language_name(engine_a.get_language())
         language_b = IBus.get_language_name(engine_b.get_language())
-        longname_a = i18n.gettext_engine_longname(engine_a)
-        longname_b = i18n.gettext_engine_longname(engine_b)
-        label_a = "%s - %s" % (language_a, longname_a)
-        label_b = "%s - %s" % (language_b, longname_b)
-        # http://docs.python.org/3.0/whatsnew/3.0.html#ordering-comparisons
-        return (label_a > label_b) - (label_a < label_b)
+        label_a = "%s - %s" % (language_a, engine_a.get_longname())
+        label_b = "%s - %s" % (language_b, engine_b.get_longname())
+        return cmp(label_a, label_b)
 
     def __selection_changed_cb(self, *args):
         self.notify("active-engine");
@@ -132,31 +127,21 @@ class EngineTreeView(Gtk.TreeView):
     def __icon_cell_data_cb(self, celllayout, renderer, model, it, data):
         engine = self.__model.get_value(it, 0)
 
-        # When append_engine() is called, self.__model.append(None)
-        # is called internally and engine == None could happen in
-        # a slow system.
-        if engine == None:
-            return
-
         icon_size = Gtk.icon_size_lookup(Gtk.IconSize.LARGE_TOOLBAR)[0]
         pixbuf = load_icon(engine.get_icon(), Gtk.IconSize.LARGE_TOOLBAR)
         renderer.set_property("pixbuf", pixbuf)
 
     def __name_cell_data_cb(self, celllayout, renderer, model, it, data):
         engine = self.__model.get_value(it, 0)
-
-        # When append_engine() is called, self.__model.append(None)
-        # is called internally and engine == None could happen in
-        # a slow system.
-        if engine == None:
-            return
-
         renderer.set_property("sensitive", True)
         language = IBus.get_language_name(engine.get_language())
-        longname = i18n.gettext_engine_longname(engine)
         renderer.set_property("text",
-                "%s - %s" % (language, longname))
-        renderer.set_property("weight", Pango.Weight.NORMAL)
+                "%s - %s" % (language, engine.get_longname()))
+        if self.__model.get_path(it).get_indices()[0] == 0:
+            # default engine
+            renderer.set_property("weight", Pango.Weight.BOLD)
+        else:
+            renderer.set_property("weight", Pango.Weight.NORMAL)
 
     def __layout_cell_data_cb(self, celllayout, renderer, model, it, data):
         engine = self.__model.get_value(it, 0)
@@ -165,7 +150,11 @@ class EngineTreeView(Gtk.TreeView):
         if not layout:
             layout = engine.layout
         renderer.set_property("text", layout)
-        renderer.set_property("weight", Pango.Weight.NORMAL)
+        if self.__model.get_path(it).get_indices()[0] == 0:
+            #default engine
+            renderer.set_property("weight", Pango.Weight.BOLD)
+        else:
+            renderer.set_property("weight", Pango.Weight.NORMAL)
 
     def __engine_layout_changed_cb(self, combo, path, it):
         return
@@ -184,26 +173,25 @@ class EngineTreeView(Gtk.TreeView):
             engines = [ r[0] for r in self.__model if r[0] != None]
             return engines
         else:
-            raise AttributeError('unknown property %s' % prop.name)
+            raise AttributeError, 'unknown property %s' % prop.name
 
     def do_set_property(self, prop, value):
         if prop.name == "active-engine":
-            raise AttributeError("active-engine is readonly")
+            raise AttributeError, "active-engine is readonly"
         elif prop.name == "engines":
             set_engines(value)
         else:
-            raise AttributeError('unknown property %s' % prop.name)
+            raise AttributeError, 'unknown property %s' % prop.name
 
     def set_engines(self, engines):
         self.__model.clear()
-        self.__engines = []
+        self.__engines = set([])
         for e in engines:
             if e in self.__engines:
                 continue
             it = self.__model.append(None)
-            i18n.init_textdomain(e.get_textdomain())
             self.__model.set(it, 0, e)
-            self.__engines.append(e)
+            self.__engines.add(e)
         self.__emit_changed()
 
     def get_selected_iter(self):
@@ -212,9 +200,6 @@ class EngineTreeView(Gtk.TreeView):
             return selection.get_selected()[1]
 
     def get_engines(self):
-        return self.__engines
-
-    def get_sorted_engines(self):
         return self.get_property("engines")
 
     def get_active_engine(self):
@@ -225,14 +210,16 @@ class EngineTreeView(Gtk.TreeView):
             return
         it = self.__model.prepend(None)
         self.__model.set(it, 0, engine)
-        self.__engines = [engine] + self.__engines
+        self.__engines.add(engine)
+        self.scroll_to_cell(self.__model[0].path, None)
 
     def append_engine(self, engine):
         if engine == None or engine in self.__engines:
             return
         it = self.__model.append(None)
         self.__model.set(it, 0, engine)
-        self.__engines.append(engine)
+        self.__engines.add(engine)
+        self.scroll_to_cell(self.__model[-1].path, None)
 
     def remove_engine(self):
         it = self.get_selected_iter()

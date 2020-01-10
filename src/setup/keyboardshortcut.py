@@ -2,23 +2,23 @@
 #
 # ibus - The Input Bus
 #
-# Copyright (c) 2007-2015 Peng Huang <shawn.p.huang@gmail.com>
-# Copyright (c) 2007-2015 Red Hat, Inc.
+# Copyright (c) 2007-2010 Peng Huang <shawn.p.huang@gmail.com>
+# Copyright (c) 2007-2010 Red Hat, Inc.
 #
 # This library is free software; you can redistribute it and/or
 # modify it under the terms of the GNU Lesser General Public
 # License as published by the Free Software Foundation; either
-# version 2.1 of the License, or (at your option) any later version.
+# version 2 of the License, or (at your option) any later version.
 #
 # This library is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-# Lesser General Public License for more details.
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Lesser General Public License for more details.
 #
 # You should have received a copy of the GNU Lesser General Public
-# License along with this library; if not, write to the Free Software
-# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301
-# USA
+# License along with this program; if not, write to the
+# Free Software Foundation, Inc., 59 Temple Place, Suite 330,
+# Boston, MA  02111-1307  USA
 
 __all__ = (
     "KeyboardShortcutSelection",
@@ -35,10 +35,9 @@ from i18n import _, N_
 
 MAX_HOTKEY = 6
 
-class KeyboardShortcutSelection(Gtk.Box):
+class KeyboardShortcutSelection(Gtk.VBox):
     def __init__(self, shortcuts = None):
-        super(KeyboardShortcutSelection, self).__init__(
-                orientation=Gtk.Orientation.VERTICAL)
+        super(KeyboardShortcutSelection, self).__init__()
         self.__init_ui()
         self.set_shortcuts(shortcuts)
 
@@ -49,22 +48,21 @@ class KeyboardShortcutSelection(Gtk.Box):
         # self.pack_start(label, False, True, 4)
 
         # shortcuts view
-        self.__shortcut_view = Gtk.TreeView(
-                model = Gtk.ListStore(GObject.TYPE_STRING))
+        self.__shortcut_view = Gtk.TreeView(Gtk.ListStore(GObject.TYPE_STRING))
+        self.__shortcut_view.set_size_request(-1, 100)
         renderer = Gtk.CellRendererText()
         column = Gtk.TreeViewColumn(_("Keyboard shortcuts"), renderer, text = 0)
         self.__shortcut_view.append_column(column)
         self.__shortcut_view.connect("cursor-changed", self.__shortcut_view_cursor_changed_cb)
         scrolledwindow = Gtk.ScrolledWindow()
         scrolledwindow.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
-        scrolledwindow.set_min_content_height(100)
         scrolledwindow.add(self.__shortcut_view)
         scrolledwindow.set_shadow_type(Gtk.ShadowType.IN)
         self.pack_start(scrolledwindow, True, True, 4)
 
         # key code
-        hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
-        label = Gtk.Label(label = _("Key code:"))
+        hbox = Gtk.HBox()
+        label = Gtk.Label(_("Key code:"))
         label.set_justify(Gtk.Justification.LEFT)
         label.set_alignment(0.0, 0.5)
         hbox.pack_start(label, False, True, 4)
@@ -72,19 +70,19 @@ class KeyboardShortcutSelection(Gtk.Box):
         self.__keycode_entry = Gtk.Entry()
         self.__keycode_entry.connect("notify::text", self.__keycode_entry_notify_cb)
         hbox.pack_start(self.__keycode_entry, True, True, 4)
-        self.__keycode_button = Gtk.Button(label = "...")
+        self.__keycode_button = Gtk.Button("...")
         self.__keycode_button.connect("clicked", self.__keycode_button_clicked_cb)
         hbox.pack_start(self.__keycode_button, False, True, 4)
         self.pack_start(hbox, False, True, 4)
 
         # modifiers
-        hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
-        label = Gtk.Label(label = _("Modifiers:"))
+        hbox = Gtk.HBox()
+        label = Gtk.Label(_("Modifiers:"))
         label.set_justify(Gtk.Justification.LEFT)
         label.set_alignment(0.0, 0.5)
         hbox.pack_start(label, False, True, 4)
 
-        table = Gtk.Table(n_rows = 4, n_columns = 2)
+        table = Gtk.Table(4, 2)
         self.__modifier_buttons = []
         self.__modifier_buttons.append(("Control",
                                         Gtk.CheckButton.new_with_mnemonic("_Control"),
@@ -105,36 +103,37 @@ class KeyboardShortcutSelection(Gtk.Box):
                                         Gtk.CheckButton.new_with_mnemonic("_Hyper"),
                                         Gdk.ModifierType.HYPER_MASK))
         # <CapsLock> is not parsed by gtk_accelerator_parse()
-        # <Release> is not supported by XIGrabKeycode()
+        # FIXME: Need to check if ibus gtk panel can enable <Release>.
+        self.__modifier_buttons.append(("Release",
+                                        Gtk.CheckButton.new_with_mnemonic("_Release"),
+                                        Gdk.ModifierType.RELEASE_MASK))
         for name, button, mask in self.__modifier_buttons:
             button.connect("toggled", self.__modifier_button_toggled_cb, name)
 
         table.attach(self.__modifier_buttons[0][1], 0, 1, 0, 1)
         table.attach(self.__modifier_buttons[1][1], 1, 2, 0, 1)
         table.attach(self.__modifier_buttons[2][1], 2, 3, 0, 1)
-        table.attach(self.__modifier_buttons[3][1], 0, 1, 1, 2)
-        table.attach(self.__modifier_buttons[4][1], 1, 2, 1, 2)
-        table.attach(self.__modifier_buttons[5][1], 2, 3, 1, 2)
+        table.attach(self.__modifier_buttons[3][1], 3, 4, 0, 1)
+        table.attach(self.__modifier_buttons[4][1], 0, 1, 1, 2)
+        table.attach(self.__modifier_buttons[5][1], 1, 2, 1, 2)
+        table.attach(self.__modifier_buttons[6][1], 2, 3, 1, 2)
         hbox.pack_start(table, True, True, 4)
         self.pack_start(hbox, False, True, 4)
 
         # buttons
-        hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
+        hbox = Gtk.HBox()
         # add button
-        self.__add_button = Gtk.Button(label = _("_Add"),
-                                       use_underline = True)
+        self.__add_button = Gtk.Button(stock = Gtk.STOCK_ADD)
         self.__add_button.set_sensitive(False)
         self.__add_button.connect("clicked", self.__add_button_clicked_cb)
         hbox.pack_start(self.__add_button, False, True, 0)
         # apply button
-        self.__apply_button = Gtk.Button(label = _("_Apply"),
-                                         use_underline = True)
+        self.__apply_button = Gtk.Button(stock = Gtk.STOCK_APPLY)
         self.__apply_button.set_sensitive(False)
         self.__apply_button.connect("clicked", self.__apply_button_clicked_cb)
         hbox.pack_start(self.__apply_button, False, True, 0)
         # delete button
-        self.__delete_button = Gtk.Button(label = _("_Delete"),
-                                          use_underline = True)
+        self.__delete_button = Gtk.Button(stock = Gtk.STOCK_DELETE)
         self.__delete_button.set_sensitive(False)
         self.__delete_button.connect("clicked", self.__delete_button_clicked_cb)
         hbox.pack_start(self.__delete_button, False, True, 0)
@@ -183,7 +182,7 @@ class KeyboardShortcutSelection(Gtk.Box):
                 modifiers.append(name)
         if keycode.startswith("_"):
             keycode = keycode[1:]
-        shortcut = "".join(['<' + m + '>' for m in modifiers])
+        shortcut = "".join(map(lambda m: '<' + m + '>', modifiers))
         shortcut += keycode
         return shortcut
 
@@ -247,10 +246,8 @@ class KeyboardShortcutSelection(Gtk.Box):
 
     def __keycode_button_clicked_cb(self, button):
         out = []
-        dlg = Gtk.MessageDialog(transient_for = self.get_toplevel(),
-                                buttons = Gtk.ButtonsType.CLOSE)
-        message = _("Please press a key (or a key combination).\n" \
-                    "The dialog will be closed when the key is released.")
+        dlg = Gtk.MessageDialog(parent = self.get_toplevel(), buttons = Gtk.ButtonsType.CLOSE)
+        message = _("Please press a key (or a key combination).\nThe dialog will be closed when the key is released.")
         dlg.set_markup(message)
         dlg.set_title(_("Please press a key (or a key combination)"))
         sw = Gtk.ScrolledWindow()
@@ -264,10 +261,8 @@ class KeyboardShortcutSelection(Gtk.Box):
         model = Gtk.ListStore(GObject.TYPE_INT,
                               GObject.TYPE_UINT,
                               GObject.TYPE_UINT)
-        accel_view = Gtk.TreeView(model = model)
-        accel_view.set_headers_visible(False)
+        accel_view = Gtk.TreeView(model)
         sw.add(accel_view)
-        sw.set_min_content_height(30)
         column = Gtk.TreeViewColumn()
         renderer = Gtk.CellRendererAccel(accel_mode=Gtk.CellRendererAccelMode.OTHER,
                                          editable=True)
@@ -316,9 +311,8 @@ class KeyboardShortcutSelection(Gtk.Box):
         self.__apply_button.set_sensitive(False)
 
 class KeyboardShortcutSelectionDialog(Gtk.Dialog):
-    def __init__(self, title = None, transient_for = None, flags = 0):
-        super(KeyboardShortcutSelectionDialog, self).__init__(
-                title = title, transient_for = transient_for, flags = flags)
+    def __init__(self, title = None, parent = None, flags = 0, buttons = None):
+        super(KeyboardShortcutSelectionDialog, self).__init__(title, parent, flags, buttons)
         self.__selection_view = KeyboardShortcutSelection()
         self.vbox.pack_start(self.__selection_view, False, True, 0)
         self.vbox.show_all()
@@ -335,12 +329,12 @@ class KeyboardShortcutSelectionDialog(Gtk.Dialog):
 
 
 if __name__ == "__main__":
-    dlg = KeyboardShortcutSelectionDialog(title = "Select test")
-    buttons = (_("_Cancel"), Gtk.ResponseType.CANCEL,
-               _("_OK"), Gtk.ResponseType.OK)
-    dlg.add_buttons(buttons)
+    dlg = KeyboardShortcutSelectionDialog(
+        title = "Select test",
+        buttons = (Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL,
+                   Gtk.STOCK_OK, Gtk.ResponseType.OK))
     dlg.add_shortcut("Control+Shift+space")
     dlg.set_shortcuts(None)
-    print((dlg.run()))
-    print((dlg.get_shortcuts()))
+    print dlg.run()
+    print dlg.get_shortcuts()
 

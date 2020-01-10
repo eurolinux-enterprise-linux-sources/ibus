@@ -7,21 +7,20 @@
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
- * version 2.1 of the License, or (at your option) any later version.
+ * version 2 of the License, or (at your option) any later version.
  *
  * This library is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.	 See the GNU
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301
- * USA
+ * License along with this library; if not, write to the
+ * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
+ * Boston, MA 02111-1307, USA.
  */
 #include <glib/gstdio.h>
 #include "ibuscomponent.h"
-#include "ibusinternal.h"
 
 enum {
     LAST_SIGNAL,
@@ -365,7 +364,6 @@ ibus_component_serialize (IBusComponent   *component,
         g_variant_builder_add (array, "v", ibus_serializable_serialize ((IBusSerializable *)p->data));
     }
     g_variant_builder_add (builder, "av", array);
-    g_variant_builder_unref (array);
 
     /* serialize engine desc list */
     array = g_variant_builder_new (G_VARIANT_TYPE ("av"));
@@ -373,7 +371,6 @@ ibus_component_serialize (IBusComponent   *component,
         g_variant_builder_add (array, "v", ibus_serializable_serialize ((IBusSerializable *)p->data));
     }
     g_variant_builder_add (builder, "av", array);
-    g_variant_builder_unref (array);
 
     return TRUE;
 }
@@ -387,22 +384,14 @@ ibus_component_deserialize (IBusComponent   *component,
     retval = IBUS_SERIALIZABLE_CLASS (ibus_component_parent_class)->deserialize ((IBusSerializable *)component, variant);
     g_return_val_if_fail (retval, 0);
 
-    ibus_g_variant_get_child_string (variant, retval++,
-                                     &component->priv->name);
-    ibus_g_variant_get_child_string (variant, retval++,
-                                     &component->priv->description);
-    ibus_g_variant_get_child_string (variant, retval++,
-                                     &component->priv->version);
-    ibus_g_variant_get_child_string (variant, retval++,
-                                     &component->priv->license);
-    ibus_g_variant_get_child_string (variant, retval++,
-                                     &component->priv->author);
-    ibus_g_variant_get_child_string (variant, retval++,
-                                     &component->priv->homepage);
-    ibus_g_variant_get_child_string (variant, retval++,
-                                     &component->priv->exec);
-    ibus_g_variant_get_child_string (variant, retval++,
-                                     &component->priv->textdomain);
+    g_variant_get_child (variant, retval++, "s", &component->priv->name);
+    g_variant_get_child (variant, retval++, "s", &component->priv->description);
+    g_variant_get_child (variant, retval++, "s", &component->priv->version);
+    g_variant_get_child (variant, retval++, "s", &component->priv->license);
+    g_variant_get_child (variant, retval++, "s", &component->priv->author);
+    g_variant_get_child (variant, retval++, "s", &component->priv->homepage);
+    g_variant_get_child (variant, retval++, "s", &component->priv->exec);
+    g_variant_get_child (variant, retval++, "s", &component->priv->textdomain);
 
     GVariant *var;
     GVariantIter *iter = NULL;

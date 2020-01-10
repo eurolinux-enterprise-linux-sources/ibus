@@ -2,23 +2,22 @@
  *
  * ibus - The Input Bus
  *
- * Copyright(c) 2011-2016 Peng Huang <shawn.p.huang@gmail.com>
- * Copyright(c) 2016-2017 Takao Fujiwara <takao.fujiwara1@gmail.com>
+ * Copyright(c) 2011 Peng Huang <shawn.p.huang@gmail.com>
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
- * version 2.1 of the License, or (at your option) any later version.
+ * version 2 of the License, or(at your option) any later version.
  *
  * This library is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Lesser General Public License for more details.
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301
- * USA
+ * License along with this program; if not, write to the
+ * Free Software Foundation, Inc., 59 Temple Place, Suite 330,
+ * Boston, MA  02111-1307  USA
  */
 
 class Handle : Gtk.EventBox {
@@ -30,11 +29,6 @@ class Handle : Gtk.EventBox {
     public signal void move_end();
 
     public Handle() {
-        // Call base class constructor
-        GLib.Object(
-            name : "IBusHandle"
-        );
-
         set_size_request(6, -1);
         Gdk.EventMask mask = Gdk.EventMask.EXPOSURE_MASK |
                              Gdk.EventMask.BUTTON_PRESS_MASK |
@@ -42,23 +36,11 @@ class Handle : Gtk.EventBox {
                              Gdk.EventMask.BUTTON1_MOTION_MASK;
         set_events(mask);
         m_move_begined = false;
-
-        // Currently it is too hard to notice this Handle on PropertyPanel
-        // so now this widget is drawn by the gray color for the visibility.
-        Gtk.CssProvider css_provider = new Gtk.CssProvider();
-        try {
-            css_provider.load_from_data(
-                    "#IBusHandle { background-color: gray }", -1);
-        } catch (GLib.Error error) {
-            warning("Parse error in Handle: %s", error.message);
-        }
-        Gtk.StyleContext context = get_style_context();
-        context.add_provider(css_provider,
-                             Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION);
     }
 
     public override void realize() {
         base.realize();
+        // get_window().set_cursor(new Gdk.Cursor(Gdk.CursorType.FLEUR));
     }
 
     public override bool button_press_event(Gdk.EventButton event) {
@@ -137,9 +119,7 @@ class Handle : Gtk.EventBox {
         m_move_begined = false;
         m_press_pos.x = 0;
         m_press_pos.y = 0;
-        get_window().set_cursor(new Gdk.Cursor.for_display(
-                   Gdk.Display.get_default(),
-                   Gdk.CursorType.FLEUR));
+        get_window().set_cursor(new Gdk.Cursor(Gdk.CursorType.LEFT_PTR));
         move_end();
         return true;
     }

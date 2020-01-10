@@ -2,39 +2,7 @@
 /* Generated data (by glib-mkenums) */
 
 #include "ibus.h"
-/* enumerations from "ibusattribute.h" */
-GType
-ibus_attr_type_get_type (void)
-{
-    static GType etype = 0;
-    if (G_UNLIKELY(etype == 0)) {
-        static const GEnumValue values[] = {
-            { IBUS_ATTR_TYPE_UNDERLINE, "IBUS_ATTR_TYPE_UNDERLINE", "underline" },
-            { IBUS_ATTR_TYPE_FOREGROUND, "IBUS_ATTR_TYPE_FOREGROUND", "foreground" },
-            { IBUS_ATTR_TYPE_BACKGROUND, "IBUS_ATTR_TYPE_BACKGROUND", "background" },
-            { 0, NULL, NULL }
-        };
-        etype = g_enum_register_static (g_intern_static_string ("IBusAttrType"), values);
-    }
-    return etype;
-}
-GType
-ibus_attr_underline_get_type (void)
-{
-    static GType etype = 0;
-    if (G_UNLIKELY(etype == 0)) {
-        static const GEnumValue values[] = {
-            { IBUS_ATTR_UNDERLINE_NONE, "IBUS_ATTR_UNDERLINE_NONE", "none" },
-            { IBUS_ATTR_UNDERLINE_SINGLE, "IBUS_ATTR_UNDERLINE_SINGLE", "single" },
-            { IBUS_ATTR_UNDERLINE_DOUBLE, "IBUS_ATTR_UNDERLINE_DOUBLE", "double" },
-            { IBUS_ATTR_UNDERLINE_LOW, "IBUS_ATTR_UNDERLINE_LOW", "low" },
-            { IBUS_ATTR_UNDERLINE_ERROR, "IBUS_ATTR_UNDERLINE_ERROR", "error" },
-            { 0, NULL, NULL }
-        };
-        etype = g_enum_register_static (g_intern_static_string ("IBusAttrUnderline"), values);
-    }
-    return etype;
-}
+
 /* enumerations from "ibusobject.h" */
 GType
 ibus_object_flags_get_type (void)
@@ -52,6 +20,42 @@ ibus_object_flags_get_type (void)
     }
     return etype;
 }
+
+/* enumerations from "ibusattribute.h" */
+GType
+ibus_attr_type_get_type (void)
+{
+    static GType etype = 0;
+    if (G_UNLIKELY(etype == 0)) {
+        static const GEnumValue values[] = {
+            { IBUS_ATTR_TYPE_UNDERLINE, "IBUS_ATTR_TYPE_UNDERLINE", "underline" },
+            { IBUS_ATTR_TYPE_FOREGROUND, "IBUS_ATTR_TYPE_FOREGROUND", "foreground" },
+            { IBUS_ATTR_TYPE_BACKGROUND, "IBUS_ATTR_TYPE_BACKGROUND", "background" },
+            { 0, NULL, NULL }
+        };
+        etype = g_enum_register_static (g_intern_static_string ("IBusAttrType"), values);
+    }
+    return etype;
+}
+
+GType
+ibus_attr_underline_get_type (void)
+{
+    static GType etype = 0;
+    if (G_UNLIKELY(etype == 0)) {
+        static const GEnumValue values[] = {
+            { IBUS_ATTR_UNDERLINE_NONE, "IBUS_ATTR_UNDERLINE_NONE", "none" },
+            { IBUS_ATTR_UNDERLINE_SINGLE, "IBUS_ATTR_UNDERLINE_SINGLE", "single" },
+            { IBUS_ATTR_UNDERLINE_DOUBLE, "IBUS_ATTR_UNDERLINE_DOUBLE", "double" },
+            { IBUS_ATTR_UNDERLINE_LOW, "IBUS_ATTR_UNDERLINE_LOW", "low" },
+            { IBUS_ATTR_UNDERLINE_ERROR, "IBUS_ATTR_UNDERLINE_ERROR", "error" },
+            { 0, NULL, NULL }
+        };
+        etype = g_enum_register_static (g_intern_static_string ("IBusAttrUnderline"), values);
+    }
+    return etype;
+}
+
 /* enumerations from "ibusproperty.h" */
 GType
 ibus_prop_type_get_type (void)
@@ -70,6 +74,7 @@ ibus_prop_type_get_type (void)
     }
     return etype;
 }
+
 GType
 ibus_prop_state_get_type (void)
 {
@@ -85,6 +90,7 @@ ibus_prop_state_get_type (void)
     }
     return etype;
 }
+
 /* enumerations from "ibustypes.h" */
 GType
 ibus_modifier_type_get_type (void)
@@ -119,6 +125,7 @@ ibus_modifier_type_get_type (void)
     }
     return etype;
 }
+
 GType
 ibus_capabilite_get_type (void)
 {
@@ -137,6 +144,7 @@ ibus_capabilite_get_type (void)
     }
     return etype;
 }
+
 GType
 ibus_preedit_focus_mode_get_type (void)
 {
@@ -151,6 +159,7 @@ ibus_preedit_focus_mode_get_type (void)
     }
     return etype;
 }
+
 GType
 ibus_orientation_get_type (void)
 {
@@ -166,6 +175,7 @@ ibus_orientation_get_type (void)
     }
     return etype;
 }
+
 GType
 ibus_bus_name_flag_get_type (void)
 {
@@ -181,6 +191,7 @@ ibus_bus_name_flag_get_type (void)
     }
     return etype;
 }
+
 GType
 ibus_bus_request_name_reply_get_type (void)
 {
@@ -197,6 +208,7 @@ ibus_bus_request_name_reply_get_type (void)
     }
     return etype;
 }
+
 GType
 ibus_bus_start_service_by_name_reply_get_type (void)
 {
@@ -211,6 +223,7 @@ ibus_bus_start_service_by_name_reply_get_type (void)
     }
     return etype;
 }
+
 GType
 ibus_error_get_type (void)
 {
@@ -226,50 +239,7 @@ ibus_error_get_type (void)
     }
     return etype;
 }
-GType
-ibus_input_purpose_get_type (void)
-{
-    static GType etype = 0;
-    if (G_UNLIKELY(etype == 0)) {
-        static const GEnumValue values[] = {
-            { IBUS_INPUT_PURPOSE_FREE_FORM, "IBUS_INPUT_PURPOSE_FREE_FORM", "free-form" },
-            { IBUS_INPUT_PURPOSE_ALPHA, "IBUS_INPUT_PURPOSE_ALPHA", "alpha" },
-            { IBUS_INPUT_PURPOSE_DIGITS, "IBUS_INPUT_PURPOSE_DIGITS", "digits" },
-            { IBUS_INPUT_PURPOSE_NUMBER, "IBUS_INPUT_PURPOSE_NUMBER", "number" },
-            { IBUS_INPUT_PURPOSE_PHONE, "IBUS_INPUT_PURPOSE_PHONE", "phone" },
-            { IBUS_INPUT_PURPOSE_URL, "IBUS_INPUT_PURPOSE_URL", "url" },
-            { IBUS_INPUT_PURPOSE_EMAIL, "IBUS_INPUT_PURPOSE_EMAIL", "email" },
-            { IBUS_INPUT_PURPOSE_NAME, "IBUS_INPUT_PURPOSE_NAME", "name" },
-            { IBUS_INPUT_PURPOSE_PASSWORD, "IBUS_INPUT_PURPOSE_PASSWORD", "password" },
-            { IBUS_INPUT_PURPOSE_PIN, "IBUS_INPUT_PURPOSE_PIN", "pin" },
-            { 0, NULL, NULL }
-        };
-        etype = g_enum_register_static (g_intern_static_string ("IBusInputPurpose"), values);
-    }
-    return etype;
-}
-GType
-ibus_input_hints_get_type (void)
-{
-    static GType etype = 0;
-    if (G_UNLIKELY(etype == 0)) {
-        static const GFlagsValue values[] = {
-            { IBUS_INPUT_HINT_NONE, "IBUS_INPUT_HINT_NONE", "none" },
-            { IBUS_INPUT_HINT_SPELLCHECK, "IBUS_INPUT_HINT_SPELLCHECK", "spellcheck" },
-            { IBUS_INPUT_HINT_NO_SPELLCHECK, "IBUS_INPUT_HINT_NO_SPELLCHECK", "no-spellcheck" },
-            { IBUS_INPUT_HINT_WORD_COMPLETION, "IBUS_INPUT_HINT_WORD_COMPLETION", "word-completion" },
-            { IBUS_INPUT_HINT_LOWERCASE, "IBUS_INPUT_HINT_LOWERCASE", "lowercase" },
-            { IBUS_INPUT_HINT_UPPERCASE_CHARS, "IBUS_INPUT_HINT_UPPERCASE_CHARS", "uppercase-chars" },
-            { IBUS_INPUT_HINT_UPPERCASE_WORDS, "IBUS_INPUT_HINT_UPPERCASE_WORDS", "uppercase-words" },
-            { IBUS_INPUT_HINT_UPPERCASE_SENTENCES, "IBUS_INPUT_HINT_UPPERCASE_SENTENCES", "uppercase-sentences" },
-            { IBUS_INPUT_HINT_INHIBIT_OSK, "IBUS_INPUT_HINT_INHIBIT_OSK", "inhibit-osk" },
-            { IBUS_INPUT_HINT_VERTICAL_WRITING, "IBUS_INPUT_HINT_VERTICAL_WRITING", "vertical-writing" },
-            { 0, NULL, NULL }
-        };
-        etype = g_flags_register_static (g_intern_static_string ("IBusInputHints"), values);
-    }
-    return etype;
-}
+
 
 /* Generated data ends here */
 

@@ -1,24 +1,23 @@
 /* -*- mode: C; c-basic-offset: 4; indent-tabs-mode: nil; -*- */
 /* vim:set et sts=4: */
 /* ibus - The Input Bus
- * Copyright (C) 2008-2013 Peng Huang <shawn.p.huang@gmail.com>
- * Copyright (C) 2015-2016 Takao Fujiwara <takao.fujiwara1@gmail.com>
- * Copyright (C) 2008-2016 Red Hat, Inc.
+ * Copyright (C) 2008-2010 Peng Huang <shawn.p.huang@gmail.com>
+ * Copyright (C) 2008-2010 Red Hat, Inc.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
- * version 2.1 of the License, or (at your option) any later version.
+ * version 2 of the License, or (at your option) any later version.
  *
  * This library is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.	 See the GNU
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301
- * USA
+ * License along with this library; if not, write to the
+ * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
+ * Boston, MA 02111-1307, USA.
  */
 
 #include "engineproxy.h"
@@ -643,7 +642,8 @@ bus_engine_proxy_new_internal (const gchar     *path,
     g_assert (IBUS_IS_ENGINE_DESC (desc));
     g_assert (G_IS_DBUS_CONNECTION (connection));
 
-    GDBusProxyFlags flags = G_DBUS_PROXY_FLAGS_DO_NOT_AUTO_START;
+    GDBusProxyFlags flags = G_DBUS_PROXY_FLAGS_DO_NOT_AUTO_START |
+                            G_DBUS_PROXY_FLAGS_DO_NOT_LOAD_PROPERTIES;
     BusEngineProxy *engine =
         (BusEngineProxy *) g_initable_new (BUS_TYPE_ENGINE_PROXY,
                                            NULL,
@@ -663,7 +663,7 @@ bus_engine_proxy_new_internal (const gchar     *path,
 }
 
 typedef struct {
-    GTask           *task;
+    GSimpleAsyncResult *simple;
     IBusEngineDesc  *desc;
     BusComponent    *component;
     BusFactoryProxy *factory;
@@ -677,8 +677,8 @@ typedef struct {
 static void
 engine_proxy_new_data_free (EngineProxyNewData *data)
 {
-    if (data->task != NULL) {
-        g_object_unref (data->task);
+    if (data->simple != NULL) {
+        g_object_unref (data->simple);
     }
 
     if (data->desc != NULL) {
@@ -722,14 +722,15 @@ create_engine_ready_cb (BusFactoryProxy    *factory,
                         GAsyncResult       *res,
                         EngineProxyNewData *data)
 {
-    g_return_if_fail (data->task != NULL);
+    g_return_if_fail (data->simple != NULL);
 
     GError *error = NULL;
     gchar *path = bus_factory_proxy_create_engine_finish (factory,
                                                           res,
                                                           &error);
     if (path == NULL) {
-        g_task_return_error (data->task, error);
+        g_simple_async_result_set_from_error (data->simple, error);
+        g_simple_async_result_complete_in_idle (data->simple);
         engine_proxy_new_data_free (data);
         return;
     }
@@ -741,7 +742,8 @@ create_engine_ready_cb (BusFactoryProxy    *factory,
     g_free (path);
 
     /* FIXME: set destroy callback ? */
-    g_task_return_pointer (data->task, engine, NULL);
+    g_simple_async_result_set_op_res_gpointer (data->simple, engine, NULL);
+    g_simple_async_result_complete_in_idle (data->simple);
 
     engine_proxy_new_data_free (data);
 }
@@ -775,7 +777,10 @@ notify_factory_cb (BusComponent       *component,
         /* We *have to* disconnect the cancelled_cb here, since g_dbus_proxy_call
          * calls create_engine_ready_cb even if the proxy call is cancelled, and
          * in this case, create_engine_ready_cb itself will return error using
-         * g_task_return_error(). */
+         * g_simple_async_result_set_from_error and g_simple_async_result_complete.
+         * Otherwise, g_simple_async_result_complete might be called twice for a
+         * single data->simple twice (first in cancelled_cb and later in
+         * create_engine_ready_cb). */
         if (data->cancellable && data->cancelled_handler_id != 0) {
             g_cancellable_disconnect (data->cancellable, data->cancelled_handler_id);
             data->cancelled_handler_id = 0;
@@ -802,10 +807,12 @@ notify_factory_cb (BusComponent       *component,
 static gboolean
 timeout_cb (EngineProxyNewData *data)
 {
-    g_task_return_new_error (data->task,
-                             G_DBUS_ERROR,
-                             G_DBUS_ERROR_FAILED,
-                             "Timeout was reached");
+    g_simple_async_result_set_error (data->simple,
+                                     G_DBUS_ERROR,
+                                     G_DBUS_ERROR_FAILED,
+                                     "Timeout was reached");
+    g_simple_async_result_complete_in_idle (data->simple);
+
     engine_proxy_new_data_free (data);
 
     return FALSE;
@@ -821,10 +828,11 @@ timeout_cb (EngineProxyNewData *data)
 static gboolean
 cancelled_idle_cb (EngineProxyNewData *data)
 {
-    g_task_return_new_error (data->task,
-                             G_DBUS_ERROR,
-                             G_DBUS_ERROR_FAILED,
-                             "Operation was cancelled");
+    g_simple_async_result_set_error (data->simple,
+                                     G_DBUS_ERROR,
+                                     G_DBUS_ERROR_FAILED,
+                                     "Operation was cancelled");
+    g_simple_async_result_complete_in_idle (data->simple);
 
     engine_proxy_new_data_free (data);
 
@@ -850,21 +858,23 @@ bus_engine_proxy_new (IBusEngineDesc      *desc,
                       GAsyncReadyCallback  callback,
                       gpointer             user_data)
 {
-    GTask *task;
-
     g_assert (IBUS_IS_ENGINE_DESC (desc));
     g_assert (cancellable == NULL || G_IS_CANCELLABLE (cancellable));
     g_assert (callback);
 
-    task = g_task_new (NULL, cancellable, callback, user_data);
-    g_task_set_source_tag (task, bus_engine_proxy_new);
+    GSimpleAsyncResult *simple =
+        g_simple_async_result_new (NULL,
+                                   callback,
+                                   user_data,
+                                   bus_engine_proxy_new);
 
     if (g_cancellable_is_cancelled (cancellable)) {
-        g_task_return_new_error (task,
-                                 G_DBUS_ERROR,
-                                 G_DBUS_ERROR_FAILED,
-                                 "Operation was cancelled");
-        g_object_unref (task);
+        g_simple_async_result_set_error (simple,
+                                         G_DBUS_ERROR,
+                                         G_DBUS_ERROR_FAILED,
+                                         "Operation was cancelled");
+        g_simple_async_result_complete_in_idle (simple);
+        g_object_unref (simple);
         return;
     }
 
@@ -872,7 +882,7 @@ bus_engine_proxy_new (IBusEngineDesc      *desc,
     data->desc = g_object_ref (desc);
     data->component = bus_component_from_engine_desc (desc);
     g_object_ref (data->component);
-    data->task = task;
+    data->simple = simple;
     data->timeout = timeout;
 
     data->factory = bus_component_get_factory (data->component);
@@ -904,7 +914,7 @@ bus_engine_proxy_new (IBusEngineDesc      *desc,
         /* We don't have to connect to cancelled_cb here, since g_dbus_proxy_call
          * calls create_engine_ready_cb even if the proxy call is cancelled, and
          * in this case, create_engine_ready_cb itself can return error using
-         * g_task_return_error(). */
+         * g_simple_async_result_set_from_error and g_simple_async_result_complete. */
         bus_factory_proxy_create_engine (data->factory,
                                          data->desc,
                                          timeout,
@@ -918,28 +928,15 @@ BusEngineProxy *
 bus_engine_proxy_new_finish (GAsyncResult   *res,
                              GError       **error)
 {
-    GTask *task;
-    gboolean had_error;
-    BusEngineProxy *retval = NULL;
+    GSimpleAsyncResult *simple = G_SIMPLE_ASYNC_RESULT (res);
 
     g_assert (error == NULL || *error == NULL);
-    g_assert (g_task_is_valid (res, NULL));
+    g_assert (g_simple_async_result_get_source_tag (simple) == bus_engine_proxy_new);
 
-    task = G_TASK (res);
-    g_assert (g_task_get_source_tag (task) == bus_engine_proxy_new);
-
-    /* g_task_propagate_error() is not a public API and
-     * g_task_had_error() needs to be called before
-     * g_task_propagate_pointer() clears task->error.
-     */
-    had_error = g_task_had_error (task);
-    retval = g_task_propagate_pointer (task, error);
-    if (had_error) {
-        g_assert (retval == NULL);
+    if (g_simple_async_result_propagate_error (simple, error))
         return NULL;
-    }
 
-    return retval;
+    return (BusEngineProxy *) g_simple_async_result_get_op_res_gpointer(simple);
 }
 
 void
@@ -1135,44 +1132,6 @@ void bus_engine_proxy_set_surrounding_text (BusEngineProxy *engine,
                            NULL,
                            NULL);
     }
-}
-
-void
-bus_engine_proxy_set_content_type (BusEngineProxy *engine,
-                                   guint           purpose,
-                                   guint           hints)
-{
-    g_assert (BUS_IS_ENGINE_PROXY (engine));
-
-    GVariant *cached_content_type =
-        g_dbus_proxy_get_cached_property ((GDBusProxy *) engine,
-                                          "ContentType");
-    GVariant *content_type = g_variant_new ("(uu)", purpose, hints);
-
-    g_variant_ref_sink (content_type);
-    if (cached_content_type == NULL ||
-        !g_variant_equal (content_type, cached_content_type)) {
-        g_dbus_proxy_call ((GDBusProxy *) engine,
-                           "org.freedesktop.DBus.Properties.Set",
-                           g_variant_new ("(ssv)",
-                                          IBUS_INTERFACE_ENGINE,
-                                          "ContentType",
-                                          content_type),
-                           G_DBUS_CALL_FLAGS_NONE,
-                           -1,
-                           NULL,
-                           NULL,
-                           NULL);
-
-        /* Need to update the cache by manual since there is a timing issue. */
-        g_dbus_proxy_set_cached_property ((GDBusProxy *) engine,
-                                          "ContentType",
-                                          content_type);
-    }
-
-    if (cached_content_type != NULL)
-        g_variant_unref (cached_content_type);
-    g_variant_unref (content_type);
 }
 
 /* a macro to generate a function to call a nullary D-Bus method. */

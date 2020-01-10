@@ -1,30 +1,16 @@
+%global with_preload_xkb_engine 1
 %global with_pygobject2 1
-%if (0%{?fedora} || 0%{?rhel} > 7)
 %global with_pygobject3 1
-%else
-%global with_pygobject3 0
-%endif
 
 %global with_pkg_config %(pkg-config --version >/dev/null 2>&1 && echo -n "1" || echo -n "0")
 
-%if (0%{?fedora} || 0%{?rhel} > 6)
-%global with_kde5 1
+%if (0%{?fedora} > 18 || 0%{?rhel} > 6)
+%global with_python_pkg 1
 %else
-%global with_kde5 0
-%endif
-
-%if (0%{?fedora} || 0%{?rhel} > 7)
-%global with_wayland_weston 1
-%else
-%global with_wayland_weston 0
+%global with_python_pkg 0
 %endif
 
 %global ibus_api_version 1.0
-
-# for bytecompile in %%{_datadir}/ibus/setup
-%if %with_pygobject3
-%global __python %{__python3}
-%endif
 
 %if %with_pkg_config
 %{!?gtk2_binary_version: %global gtk2_binary_version %(pkg-config  --variable=gtk_binary_version gtk+-2.0)}
@@ -38,32 +24,37 @@
 
 %global dbus_python_version 0.83.0
 
-Name:           ibus
-Version:        1.5.17
-Release:        5%{?dist}
-Summary:        Intelligent Input Bus for Linux OS
-License:        LGPLv2+
-Group:          System Environment/Libraries
-URL:            https://github.com/ibus/%name/wiki
-Source0:        https://github.com/ibus/%name/releases/download/%{version}/%{name}-%{version}.tar.gz
-Source1:        %{name}-xinput
-Source2:        %{name}.conf.5
-%if (0%{?rhel} > 6)
-# Require cldr-emoji-annotation package
-Source3:        %{name}-cldr-emoji-annotation-32.0.0_1.tar.gz 
-Source4:        %{name}-emoji-test.txt
-%endif
-# Will remove the annotation tarball once the rpm is available on Fedora
+Name:       ibus
+Version:    1.5.3
+Release:    11%{?dist}
+Summary:    Intelligent Input Bus for Linux OS
+License:    LGPLv2+
+Group:      System Environment/Libraries
+URL:        http://code.google.com/p/ibus/
+Source0:    http://ibus.googlecode.com/files/%{name}-%{version}.tar.gz
+Source1:    %{name}-xinput
 # Upstreamed patches.
-# Patch0:         %%{name}-HEAD.patch
-Patch1:         %{name}-1612432-commit-with-mouse.patch
-Patch2:         %{name}-1612432-click-firefox-anywhere.patch
+# Patch0:     %%{name}-HEAD.patch
+Patch0:     %{name}-HEAD.patch
+# https://bugzilla.redhat.com/show_bug.cgi?id=810211
+Patch1:     %{name}-810211-no-switch-by-no-trigger.patch
+# https://bugzilla.redhat.com/show_bug.cgi?id=541492
+Patch2:     %{name}-541492-xkb.patch
+# https://bugzilla.redhat.com/show_bug.cgi?id=530711
+Patch3:     %{name}-530711-preload-sys.patch
+# Hide minor input method engines on ibus-setup by locale
+Patch4:     %{name}-xx-setup-frequent-lang.patch
+
+# Removed the target.
+# rhpkg srpm's target is rhel but it runs on fedora box.
+# Keep the default triggers for the back compatiblity.
+Patch95:    %{name}-xx-ctrl-space.patch
+# https://bugzilla.redhat.com/show_bug.cgi?id=1030358
+Patch96:    %{name}-1030358-translation_updates.patch
 
 
 BuildRequires:  gettext-devel
 BuildRequires:  libtool
-# for gtkdoc-fixxref
-BuildRequires:  glib2-doc
 BuildRequires:  gtk2-devel
 BuildRequires:  gtk3-devel
 BuildRequires:  dbus-glib-devel
@@ -72,12 +63,6 @@ BuildRequires:  desktop-file-utils
 BuildRequires:  gtk-doc
 BuildRequires:  dconf-devel
 BuildRequires:  dbus-x11
-%if %with_pygobject3
-BuildRequires:  python3-devel
-BuildRequires:  python3-gobject
-%else
-BuildRequires:  python-gobject
-%endif
 BuildRequires:  python2-devel
 BuildRequires:  vala
 BuildRequires:  vala-devel
@@ -87,51 +72,46 @@ BuildRequires:  GConf2-devel
 BuildRequires:  intltool
 BuildRequires:  iso-codes-devel
 BuildRequires:  libnotify-devel
-%if %with_wayland_weston
-BuildRequires:  libwayland-client-devel
-%endif
-%if %with_kde5
-BuildRequires:  qt5-qtbase-devel
-%endif
-%if (0%{?fedora} || 0%{?rhel} > 7)
-BuildRequires:  cldr-emoji-annotation
-BuildRequires:  unicode-emoji
+
+Requires:   %{name}-libs   = %{version}-%{release}
+Requires:   %{name}-gtk2   = %{version}-%{release}
+Requires:   %{name}-gtk3   = %{version}-%{release}
+%if %with_python_pkg
+Requires:   %{name}-setup  = %{version}-%{release}
 %endif
 
-Requires:       %{name}-libs%{?_isa}   = %{version}-%{release}
-Requires:       %{name}-gtk2%{?_isa}   = %{version}-%{release}
-Requires:       %{name}-gtk3%{?_isa}   = %{version}-%{release}
-Requires:       %{name}-setup          = %{version}-%{release}
-
-Requires:       iso-codes
-Requires:       dbus-x11
-Requires:       dconf
-Requires:       librsvg2
-%if %with_pygobject3
-# Owner of %%python3_sitearch/gi/overrides
-Requires:       python3-gobject
-# https://bugzilla.redhat.com/show_bug.cgi?id=1161871
-Requires:       python3
-%else
+Requires:   iso-codes
+Requires:   dbus-python >= %{dbus_python_version}
+Requires:   dbus-x11
+# Owner of %%{_sysconfdir}/dconf/db
+Requires:   dconf
+Requires:   librsvg2
 # Owner of %%python2_sitearch/gi/overrides
-Requires:       python-gobject
-Requires:       python2
-%endif
+Requires:   pygobject3-base
 # Owner of %%{_sysconfdir}/X11/xinit
-Requires:       xorg-x11-xinit
+Requires:   xorg-x11-xinit
 # for setxkbmap
-Requires:       xorg-x11-xkb-utils
+Requires:   xorg-x11-xkb-utils
+# The feature in ibus-gnome3 is provided by gnome-shell.
+Obsoletes:  ibus-gnome3 < %{version}-%{release}
+%if ! %with_python_pkg
+%if %with_pygobject3
+Requires:       pygobject3
+BuildRequires:  gobject-introspection-devel
+BuildRequires:  pygobject3-devel
+%endif
+%if %with_pygobject2
+Requires:       pygtk2
+%endif
+%endif
 
-Requires:               desktop-file-utils
-Requires(post):         desktop-file-utils
-Requires(postun):       desktop-file-utils
-Requires:               dconf
-Requires(postun):       dconf
-Requires(posttrans):    dconf
+Requires(post):  desktop-file-utils
+Requires(postun):  desktop-file-utils
+Requires(postun):  dconf
+Requires(posttrans): dconf
 
-Requires:               %{_sbindir}/alternatives
-Requires(post):         %{_sbindir}/alternatives
-Requires(postun):       %{_sbindir}/alternatives
+Requires(post):  %{_sbindir}/alternatives
+Requires(postun):  %{_sbindir}/alternatives
 
 %global _xinputconf %{_sysconfdir}/X11/xinit/xinput.d/ibus.conf
 
@@ -139,200 +119,151 @@ Requires(postun):       %{_sbindir}/alternatives
 IBus means Intelligent Input Bus. It is an input framework for Linux OS.
 
 %package libs
-Summary:        IBus libraries
-Group:          System Environment/Libraries
+Summary:    IBus libraries
+Group:      System Environment/Libraries
 
-Requires:       dbus >= 1.2.4
-Requires:       glib2 >= %{glib_ver}
+Requires:   glib2 >= %{glib_ver}
+Requires:   dbus >= 1.2.4
 # Owner of %%{_libdir}/girepository-1.0
-Requires:       gobject-introspection
+Requires:   gobject-introspection
 
 %description libs
 This package contains the libraries for IBus
 
 %package gtk2
-Summary:        IBus IM module for GTK2
-Group:          System Environment/Libraries
-Requires:       %{name}%{?_isa}        = %{version}-%{release}
-Requires:       %{name}-libs%{?_isa}   = %{version}-%{release}
-Requires:       glib2 >= %{glib_ver}
+Summary:    IBus im module for gtk2
+Group:      System Environment/Libraries
+Requires:   %{name}%{?_isa} = %{version}-%{release}
+Requires:   %{name}-libs = %{version}-%{release}
 Requires(post): glib2 >= %{glib_ver}
 # Added for upgrade el6 to el7
-Provides:       ibus-gtk = %{version}-%{release}
-Obsoletes:      ibus-gtk < %{version}-%{release}
+Provides:  ibus-gtk = %{version}-%{release}
+Obsoletes:  ibus-gtk < %{version}-%{release}
 
 %description gtk2
-This package contains IBus IM module for GTK2
+This package contains ibus im module for gtk2
 
 %package gtk3
-Summary:        IBus IM module for GTK3
-Group:          System Environment/Libraries
-Requires:       %{name}%{?_isa}        = %{version}-%{release}
-Requires:       %{name}-libs%{?_isa}   = %{version}-%{release}
-Requires:       glib2 >= %{glib_ver}
+Summary:    IBus im module for gtk3
+Group:      System Environment/Libraries
+Requires:   %{name}%{?_isa} = %{version}-%{release}
+Requires:   %{name}-libs = %{version}-%{release}
 Requires(post): glib2 >= %{glib_ver}
 
 %description gtk3
-This package contains IBus IM module for GTK3
+This package contains ibus im module for gtk3
 
+%if %with_python_pkg
+%if %with_pygobject3
 %package setup
 Summary:        IBus setup utility
 Group:          System Environment/Libraries
 Requires:       %{name} = %{version}-%{release}
-%if %with_pygobject3
-Requires:       python3
-Requires:       python3-gobject
-%else
-Requires:       python2
-Requires:       python-gobject
-%endif
-BuildRequires:  pygobject3-devel
+Requires:       pygobject3
 BuildRequires:  gobject-introspection-devel
+BuildRequires:  pygobject3-devel
 BuildArch:      noarch
 
 %description setup
 This is a setup utility for IBus.
+%endif
 
 %if %with_pygobject2
 %package pygtk2
-Summary:        IBus PyGTK2 library
+Summary:        IBus pygtk2 library
 Group:          System Environment/Libraries
 Requires:       %{name} = %{version}-%{release}
-Requires:       dbus-python >= %{dbus_python_version}
-Requires:       python2
 Requires:       pygtk2
 BuildArch:      noarch
 
 %description pygtk2
-This is a PyGTK2 library for IBus. Now major IBus engines use PyGObject3
+This is a pygtk2 library for IBus. Now major IBus engines use pygobject3
 and this package will be deprecated.
 %endif
-
-%if %with_pygobject3
-%package py2override
-Summary:        IBus Python2 override library
-Group:          System Environment/Libraries
-Requires:       %{name}-libs%{?_isa}   = %{version}-%{release}
-# Owner of %%python2_sitearch/gi/overrides
-%if (0%{?fedora})
-Requires:       pygobject3-base
-%else
-Requires:       python-gobject
-%endif
-Requires:       python2
-
-%description py2override
-This is a Python2 override library for IBus. The Python files override
-some functions in GObject-Introspection.
-%endif
-
-%if %with_wayland_weston
-%package wayland
-Summary:        IBus IM module for Wayland
-Group:          System Environment/Libraries
-Requires:       %{name}%{?_isa}        = %{version}-%{release}
-Requires:       %{name}-libs%{?_isa}   = %{version}-%{release}
-
-%description wayland
-This package contains IBus IM module for Wayland
 %endif
 
 %package devel
-Summary:        Development tools for ibus
-Group:          Development/Libraries
-Requires:       %{name}%{?_isa}        = %{version}-%{release}
-Requires:       %{name}-libs%{?_isa}   = %{version}-%{release}
-Requires:       dbus-devel
-Requires:       glib2-devel
+Summary:    Development tools for ibus
+Group:      Development/Libraries
+Requires:   %{name}%{?_isa} = %{version}-%{release}
+Requires:   %{name}-libs = %{version}-%{release}
+Requires:   dbus-devel
+Requires:   glib2-devel
 # Owner of %%{_datadir}/gir-1.0
-Requires:       gobject-introspection-devel
+Requires:   gobject-introspection-devel
 # Owner of %%{_datadir}/vala/vapi
-Requires:       vala
+Requires:   vala
 
 %description devel
 The ibus-devel package contains the header files and developer
 docs for ibus.
 
 %package devel-docs
-Summary:        Developer documents for IBus
-Group:          Development/Libraries
+Summary:    Developer documents for ibus
+Group:      Development/Libraries
 %if (0%{?fedora} >= 19 || 0%{?rhel} >= 7)
-Requires:       %{name}                = %{version}-%{release}
-BuildArch:      noarch
+Requires:   %{name} = %{version}-%{release}
+BuildArch:  noarch
 %else
-Requires:       %{name}%{?_isa}        = %{version}-%{release}
+Requires:   %{name}%{?_isa} = %{version}-%{release}
 %endif
+# Owner of %%{_datadir}/gtk-doc/html
+Requires:   gtk-doc
 
 %description devel-docs
-The ibus-devel-docs package contains developer documentation for IBus
+The ibus-devel-docs package contains developer documentation for ibus
 
 
 %prep
 %setup -q
-zcat %SOURCE3 | tar xf -
-mkdir emoji
-cp %SOURCE4 emoji/emoji-test.txt
-# %%patch0 -p1
-%patch1 -p1 -z .hangul
-%patch2 -p1 -z .click-anywhere
-# cp client/gtk2/ibusimcontext.c client/gtk3/ibusimcontext.c ||
-cp client/gtk2/ibusimcontext.c client/gtk3/ibusimcontext.c ||
 
-# prep test
-diff client/gtk2/ibusimcontext.c client/gtk3/ibusimcontext.c
-if test $? -ne 0 ; then
-    echo "Have to copy ibusimcontext.c into client/gtk3"
-    abort
-fi
+# %%patch0 -p1
+%patch0 -p1
+cp client/gtk2/ibusimcontext.c client/gtk3/ibusimcontext.c ||
+%patch1 -p1 -b .noswitch
+%if %with_preload_xkb_engine
+%patch2 -p1 -b .preload-xkb
+rm -f bindings/vala/ibus-1.0.vapi
+rm -f data/dconf/00-upstream-settings
+%endif
+%patch3 -p1 -b .preload-sys
+%patch4 -p1 -b .setup-frequent-lang
+
+%if (0%{?fedora} < 19 && 0%{?rhel} < 7)
+%patch95 -p1 -b .ctrl
+%endif
+%if (0%{?fedora} < 1 && 0%{?rhel} <= 7)
+%patch96 -p2 -b .po-rhel
+%endif
 
 %build
-#autoreconf -f -i -v
-#make -C ui/gtk3 maintainer-clean-generic
-#make -C tools maintainer-clean-generic
+%if %with_preload_xkb_engine
 autoreconf -f -i -v
+%endif
 %configure \
     --disable-static \
     --enable-gtk2 \
     --enable-gtk3 \
     --enable-xim \
     --enable-gtk-doc \
+    --with-no-snooper-apps='gnome-do,Do.*,firefox.*,.*chrome.*,.*chromium.*' \
     --enable-surrounding-text \
-%if %with_pygobject3
-    --with-python=python3 \
-%endif
 %if %with_pygobject2
     --enable-python-library \
 %endif
-%if %with_wayland_weston
-    --enable-wayland \
-%endif
-%if ! %with_kde5
-    --disable-appindicator \
-%endif
-%if (0%{?rhel} > 6)
-    --with-emoji-annotation-dir=$PWD/cldr-emoji-annotation-32.0.0_1/annotations \
-    --with-unicode-emoji-dir=$PWD/emoji \
-%endif
-    --enable-introspection \
-    %{nil}
+    --enable-introspection
 
+%if %with_preload_xkb_engine
 make -C ui/gtk3 maintainer-clean-generic
-make %{?_smp_mflags} GDBUS_CODEGEN="python2 $PWD/gdbus-codegen"
+%endif
+# make -C po update-gmo
+make %{?_smp_mflags}
 
 %install
 make install DESTDIR=$RPM_BUILD_ROOT INSTALL='install -p'
-rm -f $RPM_BUILD_ROOT%{_libdir}/libibus-*%{ibus_api_version}.la
+rm -f $RPM_BUILD_ROOT%{_libdir}/libibus-%{ibus_api_version}.la
 rm -f $RPM_BUILD_ROOT%{_libdir}/gtk-2.0/%{gtk2_binary_version}/immodules/im-ibus.la
 rm -f $RPM_BUILD_ROOT%{_libdir}/gtk-3.0/%{gtk3_binary_version}/immodules/im-ibus.la
-
-# install man page
-for S in %{SOURCE2}
-do
-  cp $S .
-  MP=`basename $S`
-  gzip $MP
-  install -pm 644 -D ${MP}.gz $RPM_BUILD_ROOT%{_datadir}/man/man5/${MP}.gz
-done
 
 # install xinput config file
 install -pm 644 -D %{SOURCE1} $RPM_BUILD_ROOT%{_xinputconf}
@@ -388,20 +319,20 @@ dconf update || :
 %post gtk2
 if [ $1 -eq 1 ] ; then
     # For upgrades, the cache will be regenerated by the new package's %%postun
-    gtk-query-immodules-2.0-%{__isa_bits} --update-cache &> /dev/null || :
+    %{_bindir}/update-gtk-immodules %{_host} || :
 fi
 
 %postun gtk2
-gtk-query-immodules-2.0-%{__isa_bits} --update-cache &> /dev/null || :
+%{_bindir}/update-gtk-immodules %{_host} || :
 
 %post gtk3
 if [ $1 -eq 1 ] ; then
     # For upgrades, the cache will be regenerated by the new package's %%postun
-    gtk-query-immodules-3.0-%{__isa_bits} --update-cache &> /dev/null || :
+    /usr/bin/gtk-query-immodules-3.0-%{__isa_bits} --update-cache &> /dev/null || :
 fi
 
 %postun gtk3
-gtk-query-immodules-3.0-%{__isa_bits} --update-cache &> /dev/null || :
+/usr/bin/gtk-query-immodules-3.0-%{__isa_bits} --update-cache &> /dev/null || :
 
 
 # FIXME: no version number
@@ -411,41 +342,42 @@ gtk-query-immodules-3.0-%{__isa_bits} --update-cache &> /dev/null || :
 %{_bindir}/ibus
 %{_bindir}/ibus-daemon
 %{_datadir}/bash-completion/completions/ibus.bash
-%{_datadir}/dbus-1/services/*.service
 %{_datadir}/GConf/gsettings/*
 %{_datadir}/glib-2.0/schemas/*.xml
 %{_datadir}/ibus/component
-%{_datadir}/ibus/dicts
 %{_datadir}/ibus/engine
 %{_datadir}/ibus/keymaps
 %{_datadir}/icons/hicolor/*/apps/*
 %{_datadir}/man/man1/ibus.1.gz
 %{_datadir}/man/man1/ibus-daemon.1.gz
-%{_datadir}/man/man5/ibus.conf.5.gz
-%{_datadir}/man/man7/ibus-emoji.7.gz
 %{_libexecdir}/ibus-engine-simple
 %{_libexecdir}/ibus-dconf
-%{_libexecdir}/ibus-portal
-%{_libexecdir}/ibus-ui-emojier
 %{_libexecdir}/ibus-ui-gtk3
 %{_libexecdir}/ibus-x11
 %{_sysconfdir}/dconf/db/ibus.d
 %{_sysconfdir}/dconf/profile/ibus
-%if %with_pygobject3
-%python3_sitearch/gi/overrides/__pycache__/*.py*
-%python3_sitearch/gi/overrides/IBus.py
-%else
 %python2_sitearch/gi/overrides/IBus.py*
-%endif
 # ibus owns xinput.d because gnome does not like to depend on imsettings.
 %dir %{_sysconfdir}/X11/xinit/xinput.d
 # Do not use %%config(noreplace) to always get the new keywords in _xinputconf
 # For user customization, $HOME/.xinputrc can be used instead.
 %config %{_xinputconf}
+%if ! %with_python_pkg
+%if %with_pygobject3
+%{_bindir}/ibus-setup
+%{_datadir}/applications/ibus-setup.desktop
+%{_datadir}/ibus/setup
+%{_datadir}/man/man1/ibus-setup.1.gz
+%endif
+%if %with_pygobject2
+%dir %{python2_sitelib}/ibus
+%{python2_sitelib}/ibus/*
+%endif
+%endif
 
 %files libs
-%{_libdir}/libibus-*%{ibus_api_version}.so.*
-%{_libdir}/girepository-1.0/IBus*-1.0.typelib
+%{_libdir}/libibus-%{ibus_api_version}.so.*
+%{_libdir}/girepository-1.0/IBus-1.0.typelib
 
 %files gtk2
 %{_libdir}/gtk-2.0/%{gtk2_binary_version}/immodules/im-ibus.so
@@ -453,74 +385,34 @@ gtk-query-immodules-3.0-%{__isa_bits} --update-cache &> /dev/null || :
 %files gtk3
 %{_libdir}/gtk-3.0/%{gtk3_binary_version}/immodules/im-ibus.so
 
-# The setup package won't include icon files so that
-# gtk-update-icon-cache is executed in the main package only one time.
+%if %with_python_pkg
+%if %with_pygobject3
 %files setup
 %{_bindir}/ibus-setup
 %{_datadir}/applications/ibus-setup.desktop
 %{_datadir}/ibus/setup
 %{_datadir}/man/man1/ibus-setup.1.gz
+%endif
 
 %if %with_pygobject2
 %files pygtk2
 %dir %{python2_sitelib}/ibus
 %{python2_sitelib}/ibus/*
 %endif
-
-%if %with_pygobject3
-%files py2override
-%python2_sitearch/gi/overrides/IBus.py*
-%endif
-
-%if %with_wayland_weston
-%files wayland
-%{_libexecdir}/ibus-wayland
 %endif
 
 %files devel
 %{_libdir}/lib*.so
 %{_libdir}/pkgconfig/*
 %{_includedir}/*
-%{_datadir}/gir-1.0/IBus*-1.0.gir
-%{_datadir}/vala/vapi/ibus-*1.0.vapi
-%{_datadir}/vala/vapi/ibus-*1.0.deps
+%{_datadir}/gir-1.0/IBus-1.0.gir
+%{_datadir}/vala/vapi/ibus-1.0.vapi
+%{_datadir}/vala/vapi/ibus-1.0.deps
 
 %files devel-docs
-# Own html dir since gtk-doc is heavy.
-%dir %{_datadir}/gtk-doc
-%dir %{_datadir}/gtk-doc/html
 %{_datadir}/gtk-doc/html/*
 
 %changelog
-* Tue May 07 2019 Takao Fujiwara <tfujiwar@redhat.com> - 1.5.17-5
-- Resolves: #1693926 - Commit hangul preedit with clicking out of URL bar
-
-* Wed Apr 24 2019 Takao Fujiwara <tfujiwar@redhat.com> - 1.5.17-4
-- Resolves: #1693926 - Commit hangul preedit with mouse
-
-* Fri Mar 22 2019 Takao Fujiwara <tfujiwar@redhat.com> - 1.5.17-3
-- Resolves: #1671187 - ibus.conf does not set QT_IM_MODULE with qt5 ibus module
-
-* Mon Nov 06 2017 Takao Fujiwara <tfujiwar@redhat.com> - 1.5.17-2
-- Resolves: #1488582 - delete ibus-wayland for RHEL7 inspection
-
-* Mon Nov 06 2017 Takao Fujiwara <tfujiwar@redhat.com> - 1.5.17-1
-- Resolves: #1488582 - rebase to fix a runtime dependency of gnome-shell
-
-* Fri Oct 13 2017 Takao Fujiwara <tfujiwar@redhat.com> - 1.5.3-15
-- Resolves: #1488582 - fix a build warning in errata
-
-* Fri Oct 13 2017 Takao Fujiwara <tfujiwar@redhat.com> - 1.5.3-14
-- Resolves: #1488582 - rebuild ibus with Wayland support
-- Add ibus-portal
-
-* Thu Jul 23 2015 Rui Matos <rmatos@redhat.com> - 1.5.3-13
-- Resolves: #1238397 - ibus doesn't build with vala in 7.2
-
-* Fri Apr 03 2015 Takao Fujiwara <tfujiwar@redhat.com> - 1.5.3-12
-- Resolves: #1183909 - programs using "PreeditType: OverTheSpot" is stalled
-- Resolves: #1191825 - gtk2's immodules.cache won't be updated in some cases
-
 * Wed Jan 29 2014 Takao Fujiwara <tfujiwar@redhat.com> - 1.5.3-11
 - Resolves: #1055842
   Fixed typo.

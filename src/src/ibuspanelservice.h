@@ -1,23 +1,22 @@
 /* -*- mode: C; c-basic-offset: 4; indent-tabs-mode: nil; -*- */
 /* vim:set et sts=4: */
 /* ibus - The Input Bus
- * Copyright (c) 2009-2014 Google Inc. All rights reserved.
- * Copyright (c) 2017 Takao Fujiwara <takao.fujiwara1@gmail.com>
+ * Copyright (c) 2009, Google Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
- * version 2.1 of the License, or (at your option) any later version.
+ * version 2 of the License, or (at your option) any later version.
  *
  * This library is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.	 See the GNU
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301
- * USA
+ * License along with this library; if not, write to the
+ * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
+ * Boston, MA 02111-1307, USA.
  */
 
 #if !defined (__IBUS_H_INSIDE__) && !defined (IBUS_COMPILATION)
@@ -77,11 +76,9 @@ struct _IBusPanelServiceClass {
 
     /* class members */
     void     (* focus_in)                  (IBusPanelService       *panel,
-                                            const gchar
-                                                   *input_context_path);
+                                            const gchar            *input_context_path);
     void     (* focus_out)                 (IBusPanelService       *panel,
-                                            const gchar
-                                                   *input_context_path);
+                                            const gchar            *input_context_path);
     void     (* register_properties)       (IBusPanelService       *panel,
                                             IBusPropList           *prop_list);
     void     (* set_cursor_location)       (IBusPanelService       *panel,
@@ -96,7 +93,7 @@ struct _IBusPanelServiceClass {
                                             IBusLookupTable        *lookup_table,
                                             gboolean                visible);
     void     (* update_preedit_text)       (IBusPanelService       *panel,
-                                            IBusText               *text,
+                                            IBusText              *text,
                                             guint                  cursor_pos,
                                             gboolean               visible);
     void     (* update_property)           (IBusPanelService       *panel,
@@ -116,22 +113,10 @@ struct _IBusPanelServiceClass {
     void     (* show_preedit_text)         (IBusPanelService       *panel);
     void     (* start_setup)               (IBusPanelService       *panel);
     void     (* state_changed)             (IBusPanelService       *panel);
-    void     (* destroy_context)           (IBusPanelService       *panel,
-                                            const gchar
-                                                   *input_context_path);
-    void     (* set_content_type)          (IBusPanelService       *panel,
-                                            guint                   purpose,
-                                            guint                   hints);
-    void     (* set_cursor_location_relative)
-                                           (IBusPanelService       *panel,
-                                            gint                    x,
-                                            gint                    y,
-                                            gint                    w,
-                                            gint                    h);
 
     /*< private >*/
     /* padding */
-    gpointer pdummy[5];  // We can add 8 pointers without breaking the ABI.
+    gpointer pdummy[8];  // We can add 8 pointers without breaking the ABI.
 };
 
 GType            ibus_panel_service_get_type  (void);
@@ -139,10 +124,9 @@ GType            ibus_panel_service_get_type  (void);
 /**
  * ibus_panel_service_new:
  * @connection: An GDBusConnection.
+ * @returns: A newly allocated IBusPanelService.
  *
- * Creates a new #IBusPanelService from an #GDBusConnection.
- *
- * Returns: A newly allocated #IBusPanelService.
+ * New an IBusPanelService from an GDBusConnection.
  */
 IBusPanelService *ibus_panel_service_new (GDBusConnection    *connection);
 
@@ -231,16 +215,6 @@ void ibus_panel_service_property_show     (IBusPanelService *panel,
 void ibus_panel_service_property_hide     (IBusPanelService *panel,
                                            const gchar      *prop_name);
 
-/**
- * ibus_panel_service_commit_text:
- * @panel: An #IBusPanelService
- * @text: An #IBusText
- *
- * Notify that a text is sent
- * by sending a "CommitText" message to IBus service.
- */
-void ibus_panel_service_commit_text       (IBusPanelService *panel,
-                                           IBusText         *text);
 
 G_END_DECLS
 #endif

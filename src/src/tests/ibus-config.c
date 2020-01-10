@@ -7,9 +7,9 @@ static IBusBus *bus = NULL;
 static int create_config_count = 0;
 
 static void
-finish_create_config_async_success (GObject      *source_object,
-                                    GAsyncResult *res,
-                                    gpointer      user_data)
+finish_create_config_async_sucess (GObject      *source_object,
+                                   GAsyncResult *res,
+                                   gpointer      user_data)
 {
     GMainLoop *loop = (GMainLoop *)user_data;
     GError *error = NULL;
@@ -54,7 +54,7 @@ test_create_config_async (void)
     loop = g_main_loop_new (NULL, TRUE);
     ibus_config_new_async (ibus_bus_get_connection (bus),
                            NULL,
-                           finish_create_config_async_success,
+                           finish_create_config_async_sucess,
                            loop);
     g_main_loop_run (loop);
     g_main_loop_unref (loop);
@@ -135,7 +135,6 @@ test_config_set_get (void)
 
 typedef struct {
     GMainLoop *loop;
-    guint timeout_id;
     gchar *section;
     gchar *name;
 } WatchData;
@@ -265,7 +264,6 @@ timeout_cb (gpointer user_data)
 {
     WatchData *data = (WatchData *) user_data;
     g_main_loop_quit (data->loop);
-    data->timeout_id = 0;
     return FALSE;
 }
 
@@ -278,6 +276,7 @@ change_and_test (IBusConfig  *config,
                  WatchData   *data)
 {
     gboolean retval;
+    guint timeout_id;
     GVariant *var;
 
     data->section = NULL;
@@ -295,21 +294,17 @@ change_and_test (IBusConfig  *config,
         g_variant_unref (var);
     }
 
-    data->timeout_id = g_timeout_add (1, timeout_cb, data);
+    timeout_id = g_timeout_add (1, timeout_cb, data);
     g_main_loop_run (data->loop);
-    if (data->timeout_id != 0) {
-        g_source_remove (data->timeout_id);
-    }
+    g_source_remove (timeout_id);
 
     retval = ibus_config_set_value (config, section, name,
                                     g_variant_new_int32 (1));
     g_assert (retval);
 
-    data->timeout_id = g_timeout_add (1, timeout_cb, data);
+    timeout_id = g_timeout_add (1, timeout_cb, data);
     g_main_loop_run (data->loop);
-    if (data->timeout_id != 0) {
-        g_source_remove (data->timeout_id);
-    }
+    g_source_remove (timeout_id);
 
     g_assert_cmpstr (data->section, ==, expected_section);
     g_assert_cmpstr (data->name, ==, expected_name);

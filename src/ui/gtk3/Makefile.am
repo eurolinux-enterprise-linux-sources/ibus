@@ -2,24 +2,23 @@
 #
 # ibus - The Input Bus
 #
-# Copyright (c) 2007-2015 Peng Huang <shawn.p.huang@gmail.com>
-# Copyright (c) 2015-2017 Takao Fujwiara <takao.fujiwara1@gmail.com>
-# Copyright (c) 2007-2017 Red Hat, Inc.
+# Copyright (c) 2007-2013 Peng Huang <shawn.p.huang@gmail.com>
+# Copyright (c) 2007-2013 Red Hat, Inc.
 #
 # This library is free software; you can redistribute it and/or
 # modify it under the terms of the GNU Lesser General Public
 # License as published by the Free Software Foundation; either
-# version 2.1 of the License, or (at your option) any later version.
+# version 2 of the License, or (at your option) any later version.
 #
 # This library is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-# Lesser General Public License for more details.
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Lesser General Public License for more details.
 #
 # You should have received a copy of the GNU Lesser General Public
-# License along with this library; if not, write to the Free Software
-# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301
-# USA
+# License along with this program; if not, write to the
+# Free Software Foundation, Inc., 59 Temple Place, Suite 330,
+# Boston, MA  02111-1307  USA
 
 NULL =
 
@@ -43,6 +42,8 @@ AM_CPPFLAGS = \
 	-include $(CONFIG_HEADER) \
 	$(NULL)
 
+USE_SYMBOL_ICON = FALSE
+
 AM_CFLAGS = \
 	@GLIB2_CFLAGS@ \
 	@GIO2_CFLAGS@ \
@@ -51,8 +52,8 @@ AM_CFLAGS = \
 	@X11_CFLAGS@ \
 	-DG_LOG_DOMAIN=\"IBUS\" \
 	-DBINDIR=\"$(bindir)\" \
-	-DPKGDATADIR=\"$(pkgdatadir)\" \
 	-DIBUS_DISABLE_DEPRECATED \
+	-DSWITCHER_USE_SYMBOL_ICON=$(USE_SYMBOL_ICON) \
 	-Wno-unused-variable \
 	-Wno-unused-but-set-variable \
 	-Wno-unused-function \
@@ -96,124 +97,33 @@ AM_VALAFLAGS += \
 	$(NULL)
 endif
 
-if ENABLE_APPINDICATOR
-AM_VALAFLAGS += --define=INDICATOR
-endif
-
-if ENABLE_APPINDICATOR_ENGINE_ICON
-AM_VALAFLAGS += --define=INDICATOR_ENGINE_ICON
-endif
-
 libexec_PROGRAMS = ibus-ui-gtk3
 
 ibus_ui_gtk3_SOURCES = \
 	application.vala \
 	candidatearea.vala \
 	candidatepanel.vala \
-	emojier.vala \
 	handle.vala \
 	iconwidget.vala \
-	indicator.vala \
 	keybindingmanager.vala \
 	panel.vala \
 	pango.vala \
 	property.vala \
-	propertypanel.vala \
 	separator.vala \
 	switcher.vala \
-	xkblayout.vala \
-	gen-notification-item.xml.c \
-	gen-notification-watcher.xml.c \
 	$(NULL)
 
 ibus_ui_gtk3_LDADD = \
 	$(AM_LDADD) \
 	$(NULL)
 
-gen-%.xml.c: %.xml
-	echo "Building $@ from $<"
-	echo "const char * _$(subst -,_,$(subst .,_,$(basename $(notdir $<)))) = " > $@
-	sed -e "s:\":\\\\\":g" -e s:^:\": -e s:\$$:\\\\n\": $< >> $@
-	echo ";" >> $@
-
-CLEANFILES =            \
-    gtkpanel.xml        \
-    $(NULL)
-
-emoji_headers =         \
-    ibusemojidialog.h   \
-    $(NULL)
-
-man_seven_in_files = ibus-emoji.7.in
-
-# References:
-# libappindicator/src/notification-item.xml
-# libappindicator/src/notification-watcher.xml
-# kdelibs/kdeui/knotifications/src/org.kde.StatusNotifierItem.xml
-# kdelibs/kdeui/knotifications/src/org.kde.StatusNotifierWatcher.xml
-EXTRA_DIST =                            \
-    $(emoji_headers)                    \
-    $(man_seven_in_files)               \
-    emojierapp.vala                     \
-    gtkpanel.xml.in                     \
-    notification-item.xml               \
-    notification-watcher.xml            \
-    $(NULL)
-
-if ENABLE_EMOJI_DICT
-AM_VALAFLAGS += --define=EMOJI_DICT
-
-libexec_PROGRAMS += ibus-ui-emojier
-
-ibus_ui_emojier_VALASOURCES =                   \
-    emojierapp.vala                             \
-    candidatearea.vala                          \
-    emojier.vala                                \
-    iconwidget.vala                             \
-    pango.vala                                  \
-    separator.vala                              \
-    $(NULL)
-ibus_ui_emojier_SOURCES =                       \
-    $(ibus_ui_emojier_VALASOURCES:.vala=.c)     \
-    $(NULL)
-
-ibus_ui_emojier_LDADD =                         \
-    $(AM_LDADD)                                 \
-    $(NULL)
-
-ibus_ui_emojier_VALAFLAGS =                     \
-    $(AM_VALAFLAGS)                             \
-    $(NULL)
-
-# This line and foo_VALASOURCES line can delete the duplicated entries
-# of emojier.c: emojier.vala
-emojierapp.c: $(ibus_ui_emojier_VALASOURCES)
-	$(AM_V_VALAC)$(am__cd) $(srcdir) && $(VALAC) $(AM_VALAFLAGS) \
-$(VALAFLAGS) -C $(ibus_ui_emojier_VALASOURCES)
-	$(NULL)
-# make dist creates .c files in a different srcdir
-emojierapp.o: $(srcdir)/emojierapp.c
-	$(AM_V_CC)source='$<' object='$@' libtool=no \
-	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) \
-	$(AM_V_CC_no)$(COMPILE) -c -o $@ $<
+CLEANFILES = \
+	gtkpanel.xml \
 	$(NULL)
 
-man_seven_files = $(man_seven_in_files:.7.in=.7)
-man_seven_DATA =$(man_seven_files:.7=.7.gz)
-man_sevendir = $(mandir)/man7
-%.7: %.7.in
-	$(AM_V_GEN) sed \
-	    -e 's|@VERSION[@]|$(VERSION)|g' $< > $@.tmp && \
-	    mv $@.tmp $@
-%.7.gz: %.7
-	$(AM_V_GEN) gzip -c $< > $@.tmp && mv $@.tmp $@
+EXTRA_DIST = \
+	gtkpanel.xml.in \
+	$(NULL)
 
-CLEANFILES += \
-    $(man_seven_DATA) \
-    $(man_seven_files) \
-    $(NULL)
-
-endif
-# end of ENABLE_EMOJI_DICT
 
 -include $(top_srcdir)/git.mk

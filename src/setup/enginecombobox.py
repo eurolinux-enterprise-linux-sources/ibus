@@ -2,27 +2,25 @@
 #
 # ibus - The Input Bus
 #
-# Copyright (c) 2007-2014 Peng Huang <shawn.p.huang@gmail.com>
-# Copyright (c) 2007-2014 Red Hat, Inc.
+# Copyright (c) 2007-2010 Peng Huang <shawn.p.huang@gmail.com>
+# Copyright (c) 2007-2010 Red Hat, Inc.
 #
 # This library is free software; you can redistribute it and/or
 # modify it under the terms of the GNU Lesser General Public
 # License as published by the Free Software Foundation; either
-# version 2.1 of the License, or (at your option) any later version.
+# version 2 of the License, or (at your option) any later version.
 #
 # This library is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-# Lesser General Public License for more details.
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Lesser General Public License for more details.
 #
 # You should have received a copy of the GNU Lesser General Public
-# License along with this library; if not, write to the Free Software
-# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301
-# USA
+# License along with this program; if not, write to the
+# Free Software Foundation, Inc., 59 Temple Place, Suite 330,
+# Boston, MA  02111-1307  USA
 
 import locale
-import functools
-import sys
 
 from gi.repository import GObject
 from gi.repository import Gtk
@@ -74,11 +72,11 @@ class EngineComboBox(Gtk.ComboBox):
                 langs[l] = []
             langs[l].append(e)
 
-        keys = list(langs.keys())
-        keys.sort(key=functools.cmp_to_key(locale.strcoll))
+        keys = langs.keys()
+        keys.sort(locale.strcoll)
         loc = locale.getlocale()[0]
         # None on C locale
-        if loc == None or loc == 'C':
+        if loc == None:
             loc = 'en_US'
         current_lang = IBus.get_language_name(loc)
         # move current language to the first place
@@ -97,7 +95,7 @@ class EngineComboBox(Gtk.ComboBox):
                 if a.get_rank() == b.get_rank():
                     return locale.strcoll(a.get_longname(), b.get_longname())
                 return int(b.get_rank() - a.get_rank())
-            langs[l].sort(key=functools.cmp_to_key(cmp_engine))
+            langs[l].sort(cmp_engine)
             for e in langs[l]:
                 iter2 = self.__model.append(iter1)
                 self.__model.set(iter2, 0, e)
@@ -108,10 +106,7 @@ class EngineComboBox(Gtk.ComboBox):
     def __icon_cell_data_cb(self, celllayout, renderer, model, iter, data):
         engine = self.__model.get_value(iter, 0)
 
-        if isinstance(engine, str):
-            renderer.set_property("visible", False)
-            renderer.set_property("sensitive", False)
-        elif sys.version < '3' and isinstance (engine, unicode):
+        if isinstance(engine, str) or isinstance (engine, unicode):
             renderer.set_property("visible", False)
             renderer.set_property("sensitive", False)
         elif isinstance(engine, int):
@@ -126,11 +121,7 @@ class EngineComboBox(Gtk.ComboBox):
     def __name_cell_data_cb(self, celllayout, renderer, model, iter, data):
         engine = self.__model.get_value(iter, 0)
 
-        if isinstance (engine, str):
-            renderer.set_property("sensitive", False)
-            renderer.set_property("text", engine)
-            renderer.set_property("weight", Pango.Weight.NORMAL)
-        elif sys.version < '3' and isinstance (engine, unicode):
+        if isinstance (engine, str) or isinstance (engine, unicode):
             renderer.set_property("sensitive", False)
             renderer.set_property("text", engine)
             renderer.set_property("weight", Pango.Weight.NORMAL)
@@ -155,7 +146,7 @@ class EngineComboBox(Gtk.ComboBox):
             iter = self.get_active_iter()
             return self.get_model()[iter][0]
         else:
-            raise AttributeError('unknown property %s' % property.name)
+            raise AttributeError, 'unknown property %s' % property.name
 
     def get_active_engine(self):
         return self.get_property("active-engine")

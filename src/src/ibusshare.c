@@ -7,17 +7,17 @@
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
- * version 2.1 of the License, or (at your option) any later version.
+ * version 2 of the License, or (at your option) any later version.
  *
  * This library is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.	 See the GNU
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301
- * USA
+ * License along with this library; if not, write to the
+ * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
+ * Boston, MA 02111-1307, USA.
  */
 
 #include "ibusshare.h"
@@ -50,13 +50,11 @@ ibus_get_local_machine_id (void)
                                   NULL,
                                   NULL)) {
             g_warning ("Unable to load /var/lib/dbus/machine-id: %s", error->message);
+            g_error_free (error);
             machine_id = "machine-id";
         }
         else {
             g_strstrip (machine_id);
-        }
-        if (error != NULL) {
-            g_error_free (error);
         }
     }
 
@@ -113,7 +111,10 @@ ibus_get_socket_path (void)
             display = g_strdup (_display);
         }
 
-        if (display) {
+        if (display == NULL) {
+            g_warning ("DISPLAY is empty! We use default DISPLAY (:0.0)");
+        }
+        else {
             p = display;
             hostname = display;
             for (; *p != ':' && *p != '\0'; p++);
@@ -155,9 +156,8 @@ ibus_get_socket_path (void)
 gint
 ibus_get_timeout (void)
 {
-    /* 16000 ms is the default timeout on the ibus-daemon side
-     * (15 sec) plus 1. */
-    static const gint default_timeout = 16000;
+    /* 6000 ms is the default timeout on the ibus-daemon side (5 sec) plus 1. */
+    static const gint default_timeout = 6000;
 
     static gint64 timeout = -2;
     if (timeout == -2) {

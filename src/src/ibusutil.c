@@ -1,24 +1,24 @@
 /* -*- mode: C; c-basic-offset: 4; indent-tabs-mode: nil; -*- */
 /* vim:set et sts=4: */
 /* bus - The Input Bus
- * Copyright (C) 2008-2015 Peng Huang <shawn.p.huang@gmail.com>
- * Copyright (C) 2010-2017 Takao Fujiwara <takao.fujiwara1@gmail.com>
- * Copyright (C) 2008-2016 Red Hat, Inc.
+ * Copyright (C) 2008-2011 Peng Huang <shawn.p.huang@gmail.com>
+ * Copyright (C) 2010-2011 Takao Fujiwara <takao.fujiwara1@gmail.com>
+ * Copyright (C) 2008-2011 Red Hat, Inc.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
- * version 2.1 of the License, or (at your option) any later version.
+ * version 2 of the License, or (at your option) any later version.
  *
  * This library is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.	 See the GNU
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301
- * USA
+ * License along with this library; if not, write to the
+ * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
+ * Boston, MA 02111-1307, USA.
  */
 #ifdef HAVE_CONFIG_H
 #include <config.h>
@@ -98,11 +98,6 @@ _load_lang()
     XMLNode *node;
     struct stat buf;
 
-#ifdef ENABLE_NLS
-    bindtextdomain ("iso_639", GLIB_LOCALE_DIR);
-    bind_textdomain_codeset ("iso_639", "UTF-8");
-#endif
-
     __languages_dict = g_hash_table_new_full (g_str_hash,
             g_str_equal, g_free, g_free);
     filename = g_build_filename (ISOCODES_PREFIX,
@@ -126,48 +121,35 @@ _load_lang()
 }
 
 const gchar *
-ibus_get_untranslated_language_name (const gchar *_locale)
-{
+ibus_get_language_name(const gchar *_locale) {
     const gchar *retval;
     gchar *p = NULL;
     gchar *lang = NULL;
 
-    if (__languages_dict == NULL )
+    if (__languages_dict == NULL ) {
         _load_lang();
-    if ((p = strchr (_locale, '_')) !=  NULL)
+    }
+    if ((p = strchr (_locale, '_')) !=  NULL) {
         p = g_strndup (_locale, p - _locale);
-    else
+    } else {
         p = g_strdup (_locale);
+    }
     lang = g_ascii_strdown (p, -1);
     g_free (p);
     retval = (const gchar *) g_hash_table_lookup (__languages_dict, lang);
     g_free (lang);
-    if (retval != NULL)
-        return retval;
-    else
-        return "Other";
-}
-
-const gchar *
-ibus_get_language_name (const gchar *_locale)
-{
-    const gchar *retval = ibus_get_untranslated_language_name (_locale);
-
+    if (retval != NULL) {
 #ifdef ENABLE_NLS
-    if (g_strcmp0 (retval, "Other") == 0)
-        return dgettext (GETTEXT_PACKAGE, N_("Other"));
-    else
-        return dgettext ("iso_639", retval);
+        return dgettext("iso_639", retval);
 #else
-    return retval;
+        return retval;
 #endif
-}
-
-void
-ibus_g_variant_get_child_string (GVariant *variant, gsize index, char **str)
-{
-    g_return_if_fail (str != NULL);
-
-    g_free (*str);
-    g_variant_get_child (variant, index, "s", str);
+    }
+    else {
+#ifdef ENABLE_NLS
+        return dgettext(GETTEXT_PACKAGE, N_("Other"));
+#else
+        return N_("Other");
+#endif
+    }
 }

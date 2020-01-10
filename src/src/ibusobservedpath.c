@@ -1,27 +1,26 @@
 /* -*- mode: C; c-basic-offset: 4; indent-tabs-mode: nil; -*- */
 /* vim:set et sts=4: */
 /* ibus - The Input IBus
- * Copyright (C) 2008-2015 Peng Huang <shawn.p.huang@gmail.com>
- * Copyright (C) 2008-2015 Red Hat, Inc.
+ * Copyright (C) 2008-2010 Peng Huang <shawn.p.huang@gmail.com>
+ * Copyright (C) 2008-2010 Red Hat, Inc.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
- * version 2.1 of the License, or (at your option) any later version.
+ * version 2 of the License, or (at your option) any later version.
  *
  * This library is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.	 See the GNU
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301
- * USA
+ * License along with this library; if not, write to the
+ * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
+ * Boston, MA 02111-1307, USA.
  */
 #include <glib/gstdio.h>
 #include <stdlib.h>
-#include "ibusinternal.h"
 #include "ibusobservedpath.h"
 
 
@@ -88,8 +87,7 @@ ibus_observed_path_serialize (IBusObservedPath *path,
 {
     gboolean retval;
 
-    retval = IBUS_SERIALIZABLE_CLASS (ibus_observed_path_parent_class)->
-            serialize ((IBusSerializable *)path, builder);
+    retval = IBUS_SERIALIZABLE_CLASS (ibus_observed_path_parent_class)->serialize ((IBusSerializable *)path, builder);
     g_return_val_if_fail (retval, FALSE);
 
     g_variant_builder_add (builder, "s", path->path);
@@ -104,11 +102,10 @@ ibus_observed_path_deserialize (IBusObservedPath *path,
 {
     gint retval;
 
-    retval = IBUS_SERIALIZABLE_CLASS (ibus_observed_path_parent_class)->
-            deserialize ((IBusSerializable *)path, variant);
+    retval = IBUS_SERIALIZABLE_CLASS (ibus_observed_path_parent_class)->deserialize ((IBusSerializable *)path, variant);
     g_return_val_if_fail (retval, 0);
 
-    ibus_g_variant_get_child_string (variant, retval++, &path->path);
+    g_variant_get_child (variant, retval++, "s", &path->path);
     g_variant_get_child (variant, retval++, "x", &path->mtime);
 
     return retval;
@@ -154,24 +151,12 @@ ibus_observed_path_output (IBusObservedPath *path,
 gboolean
 ibus_observed_path_check_modification (IBusObservedPath *path)
 {
-    gchar *real_path = NULL;
+    g_assert (IBUS_IS_OBSERVED_PATH (path));
     struct stat buf;
 
-    g_assert (IBUS_IS_OBSERVED_PATH (path));
-
-    if (path->path[0] == '~') {
-        const gchar *homedir = g_get_home_dir ();
-        real_path = g_build_filename (homedir, path->path + 2, NULL);
-    }
-    else {
-        real_path = g_strdup (path->path);
-    }
-
-    if (g_stat (real_path, &buf) != 0) {
+    if (g_stat (path->path, &buf) != 0) {
         buf.st_mtime = 0;
     }
-
-    g_free (real_path);
 
     if (path->mtime == buf.st_mtime)
         return FALSE;
@@ -251,7 +236,15 @@ ibus_observed_path_parse_xml_node (IBusObservedPath *path,
         return FALSE;
     }
 
-    path->path = g_strdup (node->text);
+    if (node->text[0] == '~') {
+        const gchar *homedir = g_getenv ("HOME");
+        if (homedir == NULL)
+            homedir = g_get_home_dir ();
+        path->path = g_build_filename (homedir, node->text + 2, NULL);
+    }
+    else {
+        path->path = g_strdup (node->text);
+    }
 
     gchar **attr;
     for (attr = node->attributes; attr[0]; attr += 2) {

@@ -7,17 +7,17 @@
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
- * version 2.1 of the License, or (at your option) any later version.
+ * version 2 of the License, or (at your option) any later version.
  *
  * This library is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.	 See the GNU
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301
- * USA
+ * License along with this library; if not, write to the
+ * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
+ * Boston, MA 02111-1307, USA.
  */
 
 #include "ibusimpl.h"
@@ -620,8 +620,6 @@ bus_ibus_impl_set_focused_context (BusIBusImpl     *ibus,
     }
 
     BusEngineProxy *engine = NULL;
-    guint purpose = 0;
-    guint hints = 0;
 
     if (ibus->focused_context) {
         if (ibus->use_global_engine) {
@@ -636,16 +634,12 @@ bus_ibus_impl_set_focused_context (BusIBusImpl     *ibus,
         if (ibus->panel != NULL)
             bus_panel_proxy_focus_out (ibus->panel, ibus->focused_context);
 
-        bus_input_context_get_content_type (ibus->focused_context,
-                                            &purpose, &hints);
         g_object_unref (ibus->focused_context);
         ibus->focused_context = NULL;
     }
 
     if (context == NULL && ibus->use_global_engine) {
         context = ibus->fake_context;
-        if (context)
-            bus_input_context_set_content_type (context, purpose, hints);
     }
 
     if (context) {
@@ -832,8 +826,7 @@ _context_focus_out_cb (BusInputContext    *context,
 /**
  * _context_destroy_cb:
  *
- * A callback function to be called when the "destroy" signal is sent to the
- * context.
+ * A callback function to be called when the "destroy" signal is sent to the context.
  */
 static void
 _context_destroy_cb (BusInputContext    *context,
@@ -842,12 +835,9 @@ _context_destroy_cb (BusInputContext    *context,
     g_assert (BUS_IS_IBUS_IMPL (ibus));
     g_assert (BUS_IS_INPUT_CONTEXT (context));
 
-    if (context == ibus->focused_context)
+    if (context == ibus->focused_context) {
         bus_ibus_impl_set_focused_context (ibus, NULL);
-
-    if (ibus->panel &&
-        bus_input_context_get_capabilities (context) & IBUS_CAP_FOCUS)
-        bus_panel_proxy_destroy_context (ibus->panel, context);
+    }
 
     ibus->contexts = g_list_remove (ibus->contexts, context);
     g_object_unref (context);
@@ -1396,12 +1386,11 @@ _ibus_set_global_engine_ready_cb (BusInputContext       *context,
 
     GError *error = NULL;
     if (!bus_input_context_set_engine_by_desc_finish (context, res, &error)) {
+        g_error_free (error);
         g_dbus_method_invocation_return_error (data->invocation,
                                                G_DBUS_ERROR,
                                                G_DBUS_ERROR_FAILED,
-                                               "Set global engine failed: %s",
-                                               error->message);
-        g_error_free (error);
+                                               "Set global engine failed.");
     }
     else {
         g_dbus_method_invocation_return_value (data->invocation, NULL);
@@ -1457,7 +1446,7 @@ _ibus_set_global_engine (BusIBusImpl           *ibus,
         g_dbus_method_invocation_return_error (invocation,
                                                G_DBUS_ERROR,
                                                G_DBUS_ERROR_FAILED,
-                                               "Cannot find engine %s.",
+                                               "Can not find engine %s.",
                                                engine_name);
         return;
     }
@@ -1560,7 +1549,7 @@ _ibus_set_preload_engines (BusIBusImpl     *ibus,
             g_set_error (error,
                          G_DBUS_ERROR,
                          G_DBUS_ERROR_FAILED,
-                         "Cannot find engine %s.",
+                         "Can not find engine %s.",
                          names[i]);
             g_ptr_array_free (array, FALSE);
             return FALSE;
@@ -2040,7 +2029,6 @@ bus_ibus_impl_property_changed (BusIBusImpl *service,
                                             "org.freedesktop.IBus",
                                             builder,
                                             NULL));
-    g_variant_builder_unref (builder);
 
     bus_dbus_impl_dispatch_message_by_rule (BUS_DEFAULT_DBUS, message, NULL);
     g_object_unref (message);

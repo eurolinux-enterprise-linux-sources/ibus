@@ -290,7 +290,7 @@ ibus_config_gconf_get_value (IBusConfigService      *config,
     GVariant *variant = _from_gconf_value (gv);
     gconf_value_free (gv);
 
-    return g_variant_ref_sink (variant);
+    return variant;
 }
 
 static GVariant *
@@ -304,21 +304,19 @@ ibus_config_gconf_get_values (IBusConfigService      *config,
     g_free (dir);
 
     GSList *p;
-    GVariantBuilder builder;
-
-    g_variant_builder_init (&builder, G_VARIANT_TYPE ("a{sv}"));
+    GVariantBuilder *builder = g_variant_builder_new (G_VARIANT_TYPE ("a{sv}"));
     for (p = entries; p != NULL; p = p->next) {
         GConfEntry *entry = (GConfEntry *)p->data;
         if (entry->key != NULL && entry->value != NULL) {
             const gchar *name = entry->key + len;
             GVariant *value = _from_gconf_value (entry->value);
-            g_variant_builder_add (&builder, "{sv}", name, value);
+            g_variant_builder_add (builder, "{sv}", name, value);
         }
         gconf_entry_free (entry);
     }
     g_slist_free (entries);
 
-    return g_variant_builder_end (&builder);
+    return g_variant_builder_end (builder);
 }
 
 static gboolean
